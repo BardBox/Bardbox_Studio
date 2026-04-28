@@ -120,7 +120,7 @@ export function AiSettingsPanel({ initialSettings, initialDocs }: Props) {
 
 function ProviderSection({ initial }: { initial: AiSettings }) {
   const [provider, setProvider] = useState<Provider>(initial.provider);
-  const [model, setModel] = useState(initial.model);
+  const [model, setModel] = useState<string>(initial.model ?? '');
   const [baseUrl, setBaseUrl] = useState(initial.base_url || 'http://100.x.x.x:11434');
   const [apiKey, setApiKey] = useState('');
   const [clearKey, setClearKey] = useState(false);
@@ -281,7 +281,7 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={setModel}>
+            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
               <SelectTrigger className="font-mono text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -330,7 +330,7 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={setModel}>
+            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
               <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {OPENAI_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
