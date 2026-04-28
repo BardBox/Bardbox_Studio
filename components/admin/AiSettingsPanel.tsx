@@ -550,7 +550,7 @@ function TrainingSection({ initialDocs }: { initialDocs: TrainingDoc[] }) {
                 <Label className="text-xs">Category</Label>
                 <Select
                   value={editDoc?.category ?? 'general'}
-                  onValueChange={v => setEditDoc(d => d ? { ...d, category: v } : d)}
+                  onValueChange={v => setEditDoc(d => d ? { ...d, category: v ?? undefined } : d)}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
