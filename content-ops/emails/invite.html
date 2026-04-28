@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>You're Invited</title>
+<style>
+body{margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;}
+table{border-spacing:0;}
+.wrapper{width:100%;table-layout:fixed;background:#f4f6f8;padding:40px 0;}
+.main{background:#ffffff;margin:0 auto;width:100%;max-width:600px;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.08);}
+.header{background:linear-gradient(135deg,#111827,#2563eb);padding:30px;text-align:center;}
+.header img{max-width:140px;}
+.content{padding:40px 35px;color:#1f2937;}
+.content h1{margin:0 0 15px;font-size:28px;}
+.content p{font-size:16px;line-height:1.7;color:#4b5563;margin:0 0 18px;}
+.button{display:inline-block;background:#2563eb;color:#ffffff !important;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:bold;margin:20px 0;}
+.info-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px;margin:25px 0;}
+.info-box p{margin:0 0 8px;font-size:15px;}
+.info-box p:last-child{margin:0;}
+.footer{padding:25px 35px;background:#f9fafb;font-size:13px;color:#6b7280;text-align:center;}
+@media screen and (max-width:600px){
+  .content{padding:30px 20px;}
+  .content h1{font-size:24px;}
+}
+</style>
+</head>
+<body>
+<table class="wrapper" width="100%">
+<tr><td align="center">
+<table class="main" width="100%">
+
+  <!-- HEADER -->
+  <tr>
+    <td class="header">
+      <img src="https://res.cloudinary.com/doftoxwce/image/upload/v1772692327/BARDBOX_LOGO-01.png_wth_tg_yzbhbq.png" alt="Bardbox Logo">
+    </td>
+  </tr>
+
+  <!-- BODY -->
+  <tr>
+    <td class="content">
+      <h1>You're Invited 🎉</h1>
+
+      <p>Hello,</p>
+
+      <p>You've been invited to join <strong>Bardbox Studio</strong>. We're excited to have you onboard and ready to collaborate.</p>
+
+      <p>Click the button below to accept your invitation and set up your account.</p>
+
+      <p style="text-align:center;">
+        <a href="{{ .ConfirmationURL }}" class="button">Accept Invitation</a>
+      </p>
+
+      <div class="info-box">
+        <p><strong>Your Email:</strong> {{ .Email }}</p>
+        <p><strong>Valid Until:</strong> 24 hours from receipt</p>
+      </div>
+
+      <p>If the button above doesn't work, copy and paste the link below into your browser:</p>
+      <p style="word-break:break-all;color:#2563eb;">{{ .ConfirmationURL }}</p>
+
+      <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+
+      <p>We look forward to having you with us!</p>
+
+      <p>Best Regards,<br><strong>Bardbox Team</strong></p>
+    </td>
+  </tr>
+
+  <!-- FOOTER -->
+  <tr>
+    <td class="footer">
+      <p>© 2026 Bardbox LLP. All rights reserved.</p>
+      <p>www.thebardbox.com</p>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
