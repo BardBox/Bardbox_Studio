@@ -69,7 +69,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  brand_guidelines:   'Brand voice, tone, color palette, do's and don'ts',
+  brand_guidelines:   "Brand voice, tone, color palette, do's and don'ts",
   client_info:        'Client profiles, preferences, past feedback, goals',
   workflow:           'SOPs, approval flows, process notes',
   creative_direction: 'Design preferences, content pillars, visual style',
