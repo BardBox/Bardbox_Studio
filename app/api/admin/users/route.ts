@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { createClient, supabaseAdmin } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
 async function assertManagerOrAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
-  );
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: profile } = await supabase
@@ -52,31 +45,34 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
-  const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+  // Use generateLink instead of inviteUserByEmail so the link is returned to the
+  // admin UI rather than emailed. Email security scanners (Gmail Safe Browsing etc.)
+  // pre-fetch links in emails and consume the single-use OTP before the user clicks.
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'invite',
     email,
-    {
+    options: {
       redirectTo: `${appUrl}/api/auth/callback`,
       data: { full_name },
-    }
-  );
+    },
+  });
 
-  if (inviteError) {
-    // If user already exists and invite was re-sent, treat as success
-    if (inviteError.message?.includes('already been registered') || inviteError.code === 'email_exists') {
+  if (linkError) {
+    if (linkError.message?.includes('already been registered') || (linkError as { code?: string }).code === 'email_exists') {
       return NextResponse.json({ ok: true, resent: true });
     }
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    return NextResponse.json({ error: linkError.message }, { status: 500 });
   }
 
   const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
-    { id: invited.user.id, full_name, role, email, max_concurrent_tasks, is_active: true },
+    { id: linkData.user.id, full_name, role, email, max_concurrent_tasks, is_active: true },
     { onConflict: 'id' }
   );
 
   if (profileError) {
-    await supabaseAdmin.auth.admin.deleteUser(invited.user.id);
+    await supabaseAdmin.auth.admin.deleteUser(linkData.user.id);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, invite_link: linkData.properties.action_link });
 }

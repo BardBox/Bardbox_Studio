@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import type { Client } from '@/lib/types';
 
 export function ClientsManager({ initialClients }: { initialClients: Client[] }) {
@@ -63,7 +64,7 @@ export function ClientsManager({ initialClients }: { initialClients: Client[] })
         </Button>
       </form>
 
-      <div className="border rounded-lg overflow-hidden">
+      <Card className="overflow-hidden">
         {clients.length === 0 ? (
           <p className="p-6 text-center text-muted-foreground text-sm">No clients yet</p>
         ) : (
@@ -92,7 +93,7 @@ export function ClientsManager({ initialClients }: { initialClients: Client[] })
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

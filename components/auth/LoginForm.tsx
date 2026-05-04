@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+
+const ERROR_MESSAGES: Record<string, string> = {
+  otp_expired:    'Your invite link has expired. Please ask an admin to resend the invitation.',
+  access_denied:  'Access denied. The link may have already been used or is no longer valid.',
+};
 
 export function LoginForm() {
   const router = useRouter();
@@ -12,7 +17,22 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const params = new URLSearchParams(hash);
+    const code = params.get('error_code');
+    const description = params.get('error_description');
+    if (code && ERROR_MESSAGES[code]) {
+      setError(ERROR_MESSAGES[code]);
+    } else if (description) {
+      setError(decodeURIComponent(description.replace(/\+/g, ' ')));
+    }
+    // Clear the hash so the error doesn't persist on refresh
+    history.replaceState(null, '', window.location.pathname);
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);

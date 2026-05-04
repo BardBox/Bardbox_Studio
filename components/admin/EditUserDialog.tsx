@@ -11,13 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import type { TeamUser } from './TeamTable';
 
+interface RoleOption { key: string; label: string; }
+
 interface EditUserDialogProps {
   user: TeamUser | null;
   onClose: () => void;
   onUpdated: (updated: Partial<TeamUser>) => void;
+  roles?: RoleOption[];
 }
 
-export function EditUserDialog({ user, onClose, onUpdated }: EditUserDialogProps) {
+export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUserDialogProps) {
   const [form, setForm] = useState({ full_name: '', role: '', max_concurrent_tasks: '10' });
   const [loading, setLoading] = useState(false);
 
@@ -69,10 +72,9 @@ export function EditUserDialog({ user, onClose, onUpdated }: EditUserDialogProps
             <Select value={form.role} onValueChange={(v) => set('role', v ?? '')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="designer">Designer</SelectItem>
-                <SelectItem value="smo">Social Media Ops</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                {roles.map((r) => (
+                  <SelectItem key={r.key} value={r.key}>{r.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

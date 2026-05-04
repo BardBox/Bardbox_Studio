@@ -28,7 +28,9 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
 };
 
-export function TeamTable({ initialUsers }: { initialUsers: TeamUser[] }) {
+export interface RoleOption { key: string; label: string; }
+
+export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser[]; roles?: RoleOption[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editUser, setEditUser] = useState<TeamUser | null>(null);
@@ -128,11 +130,12 @@ export function TeamTable({ initialUsers }: { initialUsers: TeamUser[] }) {
         </Table>
       </div>
 
-      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={handleInvited} />
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={handleInvited} roles={roles} />
       <EditUserDialog
         user={editUser}
         onClose={() => setEditUser(null)}
         onUpdated={(updated) => { if (editUser) handleUpdated(editUser.id, updated); }}
+        roles={roles}
       />
       <ResetPasswordDialog user={resetUser} onClose={() => setResetUser(null)} />
     </>

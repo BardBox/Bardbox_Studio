@@ -20,9 +20,10 @@ export default async function TeamPage() {
     .from('profiles').select('role').eq('id', user.id).single();
   if (!profile || !['manager', 'admin'].includes(profile.role)) redirect('/login');
 
-  const [{ data: { users: authUsers } }, { data: profiles }] = await Promise.all([
+  const [{ data: { users: authUsers } }, { data: profiles }, { data: roles }] = await Promise.all([
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
     supabaseAdmin.from('profiles').select('*').order('role').order('full_name'),
+    supabaseAdmin.from('roles').select('key, label').order('label'),
   ]);
 
   const emailMap = Object.fromEntries((authUsers ?? []).map((u) => [u.id, u.email ?? '']));
@@ -37,5 +38,5 @@ export default async function TeamPage() {
     created_at: p.created_at,
   }));
 
-  return <TeamTable initialUsers={merged} />;
+  return <TeamTable initialUsers={merged} roles={(roles ?? []) as { key: string; label: string }[]} />;
 }

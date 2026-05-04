@@ -4,41 +4,83 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  75% { transform: rotate(10deg); }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--accordion-panel-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--accordion-panel-height); }
+  to { height: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @theme inline {
+  /* Core */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Radius */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -46,75 +88,492 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Status colors */
+  --color-status-powder-blue: var(--status-powder-blue);
+  --color-status-powder-blue-foreground: var(--status-powder-blue-foreground);
+  --color-status-sky-blue: var(--status-sky-blue);
+  --color-status-sky-blue-foreground: var(--status-sky-blue-foreground);
+  --color-status-periwinkle: var(--status-periwinkle);
+  --color-status-periwinkle-foreground: var(--status-periwinkle-foreground);
+  --color-status-ice-blue: var(--status-ice-blue);
+  --color-status-ice-blue-foreground: var(--status-ice-blue-foreground);
+  --color-status-mint: var(--status-mint);
+  --color-status-mint-foreground: var(--status-mint-foreground);
+  --color-status-sage: var(--status-sage);
+  --color-status-sage-foreground: var(--status-sage-foreground);
+  --color-status-seafoam: var(--status-seafoam);
+  --color-status-seafoam-foreground: var(--status-seafoam-foreground);
+  --color-status-pistachio: var(--status-pistachio);
+  --color-status-pistachio-foreground: var(--status-pistachio-foreground);
+  --color-status-cream: var(--status-cream);
+  --color-status-cream-foreground: var(--status-cream-foreground);
+  --color-status-peach: var(--status-peach);
+  --color-status-peach-foreground: var(--status-peach-foreground);
+  --color-status-apricot: var(--status-apricot);
+  --color-status-apricot-foreground: var(--status-apricot-foreground);
+  --color-status-buttercup: var(--status-buttercup);
+  --color-status-buttercup-foreground: var(--status-buttercup-foreground);
+  --color-status-blush: var(--status-blush);
+  --color-status-blush-foreground: var(--status-blush-foreground);
+  --color-status-rose: var(--status-rose);
+  --color-status-rose-foreground: var(--status-rose-foreground);
+  --color-status-coral: var(--status-coral);
+  --color-status-coral-foreground: var(--status-coral-foreground);
+  --color-status-mauve: var(--status-mauve);
+  --color-status-mauve-foreground: var(--status-mauve-foreground);
+  --color-status-lavender: var(--status-lavender);
+  --color-status-lavender-foreground: var(--status-lavender-foreground);
+  --color-status-lilac: var(--status-lilac);
+  --color-status-lilac-foreground: var(--status-lilac-foreground);
+  --color-status-periwinkle-purple: var(--status-periwinkle-purple);
+  --color-status-periwinkle-purple-foreground: var(--status-periwinkle-purple-foreground);
+  --color-status-pearl: var(--status-pearl);
+  --color-status-pearl-foreground: var(--status-pearl-foreground);
+
+  /* Urgency (1–20) */
+  --color-urgency-1: var(--urgency-1);
+  --color-urgency-1-foreground: var(--urgency-1-foreground);
+  --color-urgency-2: var(--urgency-2);
+  --color-urgency-2-foreground: var(--urgency-2-foreground);
+  --color-urgency-3: var(--urgency-3);
+  --color-urgency-3-foreground: var(--urgency-3-foreground);
+  --color-urgency-4: var(--urgency-4);
+  --color-urgency-4-foreground: var(--urgency-4-foreground);
+  --color-urgency-5: var(--urgency-5);
+  --color-urgency-5-foreground: var(--urgency-5-foreground);
+  --color-urgency-6: var(--urgency-6);
+  --color-urgency-6-foreground: var(--urgency-6-foreground);
+  --color-urgency-7: var(--urgency-7);
+  --color-urgency-7-foreground: var(--urgency-7-foreground);
+  --color-urgency-8: var(--urgency-8);
+  --color-urgency-8-foreground: var(--urgency-8-foreground);
+  --color-urgency-9: var(--urgency-9);
+  --color-urgency-9-foreground: var(--urgency-9-foreground);
+  --color-urgency-10: var(--urgency-10);
+  --color-urgency-10-foreground: var(--urgency-10-foreground);
+  --color-urgency-11: var(--urgency-11);
+  --color-urgency-11-foreground: var(--urgency-11-foreground);
+  --color-urgency-12: var(--urgency-12);
+  --color-urgency-12-foreground: var(--urgency-12-foreground);
+  --color-urgency-13: var(--urgency-13);
+  --color-urgency-13-foreground: var(--urgency-13-foreground);
+  --color-urgency-14: var(--urgency-14);
+  --color-urgency-14-foreground: var(--urgency-14-foreground);
+  --color-urgency-15: var(--urgency-15);
+  --color-urgency-15-foreground: var(--urgency-15-foreground);
+  --color-urgency-16: var(--urgency-16);
+  --color-urgency-16-foreground: var(--urgency-16-foreground);
+  --color-urgency-17: var(--urgency-17);
+  --color-urgency-17-foreground: var(--urgency-17-foreground);
+  --color-urgency-18: var(--urgency-18);
+  --color-urgency-18-foreground: var(--urgency-18-foreground);
+  --color-urgency-19: var(--urgency-19);
+  --color-urgency-19-foreground: var(--urgency-19-foreground);
+  --color-urgency-20: var(--urgency-20);
+  --color-urgency-20-foreground: var(--urgency-20-foreground);
+
+  /* Notifications */
+  --color-notification-info: var(--notification-info);
+  --color-notification-success: var(--notification-success);
+  --color-notification-warning: var(--notification-warning);
+  --color-notification-error: var(--notification-error);
+
+  /* Star */
+  --color-star: var(--star);
+
+  /* Roles */
+  --color-role-owner: var(--role-owner);
+  --color-role-owner-foreground: var(--role-owner-foreground);
+  --color-role-manager: var(--role-manager);
+  --color-role-manager-foreground: var(--role-manager-foreground);
+  --color-role-member: var(--role-member);
+  --color-role-member-foreground: var(--role-member-foreground);
+
+  /* Sections */
+  --color-section-essentials: var(--section-essentials);
+  --color-section-essentials-bg: var(--section-essentials-bg);
+  --color-section-assignment: var(--section-assignment);
+  --color-section-assignment-bg: var(--section-assignment-bg);
+  --color-section-priority: var(--section-priority);
+  --color-section-priority-bg: var(--section-priority-bg);
+  --color-section-references: var(--section-references);
+  --color-section-references-bg: var(--section-references-bg);
+  --color-section-context: var(--section-context);
+  --color-section-context-bg: var(--section-context-bg);
+
+  /* Animations */
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-fade-in-up: fade-in-up 0.4s ease-out;
+  --animate-scale-in: scale-in 0.2s ease-out;
+  --animate-slide-in-right: slide-in-right 0.3s ease-out;
+  --animate-bounce-subtle: bounce-subtle 2s ease-in-out infinite;
+  --animate-pulse-subtle: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-count-up: count-up 0.3s ease-out;
 }
 
+/* ─── Light mode ─────────────────────────────────────────── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* BardBox Dark Grey + Yellow brand */
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.21 0.021 247);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.021 247);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --popover-foreground: oklch(0.21 0.021 247);
+  --primary: oklch(0.21 0.021 247);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.82 0.175 92);
+  --secondary-foreground: oklch(0.21 0.021 247);
+  --muted: oklch(0.912 0.008 250);
+  --muted-foreground: oklch(0.21 0.021 247);
+  --accent: oklch(0.967 0.025 97);
+  --accent-foreground: oklch(0.21 0.021 247);
+  --destructive: oklch(0.577 0.245 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.912 0.008 250);
+  --input: oklch(0.912 0.008 250);
+  --ring: oklch(0.82 0.175 92);
+  --radius: 0.375rem;
+
+  /* Charts */
+  --chart-1: oklch(0.59 0.19 256);
+  --chart-2: oklch(0.54 0.22 299);
+  --chart-3: oklch(0.82 0.175 92);
+  --chart-4: oklch(0.51 0.16 152);
+  --chart-5: oklch(0.57 0.12 190);
+
+  /* Sidebar */
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.31 0.01 264);
+  --sidebar-primary: oklch(0.14 0.01 264);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.96 0.005 264);
+  --sidebar-accent-foreground: oklch(0.14 0.01 264);
+  --sidebar-border: oklch(0.912 0.008 250);
+  --sidebar-ring: oklch(0.595 0.19 256);
+
+  /* Status — Soft Blues */
+  --status-powder-blue: oklch(0.94 0.055 240);
+  --status-powder-blue-foreground: oklch(0.32 0.065 240);
+  --status-sky-blue: oklch(0.86 0.06 215);
+  --status-sky-blue-foreground: oklch(0.27 0.055 215);
+  --status-periwinkle: oklch(0.89 0.065 265);
+  --status-periwinkle-foreground: oklch(0.32 0.055 265);
+  --status-ice-blue: oklch(0.91 0.04 200);
+  --status-ice-blue-foreground: oklch(0.27 0.04 200);
+
+  /* Status — Soft Greens */
+  --status-mint: oklch(0.90 0.055 158);
+  --status-mint-foreground: oklch(0.27 0.055 158);
+  --status-sage: oklch(0.87 0.04 145);
+  --status-sage-foreground: oklch(0.27 0.055 145);
+  --status-seafoam: oklch(0.89 0.05 168);
+  --status-seafoam-foreground: oklch(0.27 0.05 168);
+  --status-pistachio: oklch(0.90 0.055 152);
+  --status-pistachio-foreground: oklch(0.27 0.055 152);
+
+  /* Status — Soft Yellows/Oranges */
+  --status-cream: oklch(0.94 0.04 97);
+  --status-cream-foreground: oklch(0.27 0.04 97);
+  --status-peach: oklch(0.90 0.07 55);
+  --status-peach-foreground: oklch(0.27 0.055 55);
+  --status-apricot: oklch(0.89 0.075 48);
+  --status-apricot-foreground: oklch(0.27 0.06 48);
+  --status-buttercup: oklch(0.91 0.05 100);
+  --status-buttercup-foreground: oklch(0.27 0.04 100);
+
+  /* Status — Soft Pinks/Roses */
+  --status-blush: oklch(0.90 0.06 358);
+  --status-blush-foreground: oklch(0.32 0.055 358);
+  --status-rose: oklch(0.89 0.065 8);
+  --status-rose-foreground: oklch(0.32 0.06 8);
+  --status-coral: oklch(0.88 0.075 28);
+  --status-coral-foreground: oklch(0.32 0.065 28);
+  --status-mauve: oklch(0.90 0.045 340);
+  --status-mauve-foreground: oklch(0.32 0.05 340);
+
+  /* Status — Soft Purples */
+  --status-lavender: oklch(0.91 0.055 305);
+  --status-lavender-foreground: oklch(0.32 0.065 305);
+  --status-lilac: oklch(0.90 0.065 310);
+  --status-lilac-foreground: oklch(0.32 0.07 310);
+  --status-periwinkle-purple: oklch(0.90 0.055 295);
+  --status-periwinkle-purple-foreground: oklch(0.32 0.065 295);
+
+  /* Status — Soft Grays */
+  --status-pearl: oklch(0.91 0.008 250);
+  --status-pearl-foreground: oklch(0.27 0.015 250);
+
+  /* Urgency 1–4: Ice Blue → Sky Blue */
+  --urgency-1: oklch(0.86 0.05 215);
+  --urgency-1-foreground: oklch(0.27 0.045 215);
+  --urgency-2: oklch(0.85 0.05 210);
+  --urgency-2-foreground: oklch(0.27 0.045 210);
+  --urgency-3: oklch(0.84 0.045 205);
+  --urgency-3-foreground: oklch(0.27 0.04 205);
+  --urgency-4: oklch(0.83 0.045 200);
+  --urgency-4-foreground: oklch(0.27 0.04 200);
+
+  /* Urgency 5–8: Cyan → Teal */
+  --urgency-5: oklch(0.81 0.04 195);
+  --urgency-5-foreground: oklch(0.27 0.04 195);
+  --urgency-6: oklch(0.80 0.04 192);
+  --urgency-6-foreground: oklch(0.27 0.04 192);
+  --urgency-7: oklch(0.79 0.038 188);
+  --urgency-7-foreground: oklch(0.27 0.038 188);
+  --urgency-8: oklch(0.78 0.038 182);
+  --urgency-8-foreground: oklch(0.27 0.038 182);
+
+  /* Urgency 9–12: Yellow */
+  --urgency-9: oklch(0.84 0.07 104);
+  --urgency-9-foreground: oklch(0.25 0.05 104);
+  --urgency-10: oklch(0.84 0.075 100);
+  --urgency-10-foreground: oklch(0.25 0.05 100);
+  --urgency-11: oklch(0.83 0.078 98);
+  --urgency-11-foreground: oklch(0.25 0.055 98);
+  --urgency-12: oklch(0.82 0.078 95);
+  --urgency-12-foreground: oklch(0.25 0.055 95);
+
+  /* Urgency 13–16: Amber → Orange */
+  --urgency-13: oklch(0.81 0.08 85);
+  --urgency-13-foreground: oklch(0.25 0.055 85);
+  --urgency-14: oklch(0.80 0.082 78);
+  --urgency-14-foreground: oklch(0.25 0.06 78);
+  --urgency-15: oklch(0.79 0.085 65);
+  --urgency-15-foreground: oklch(0.25 0.065 65);
+  --urgency-16: oklch(0.78 0.09 55);
+  --urgency-16-foreground: oklch(0.25 0.065 55);
+
+  /* Urgency 17–20: Orange-Red → Red */
+  --urgency-17: oklch(0.80 0.085 42);
+  --urgency-17-foreground: oklch(0.25 0.065 42);
+  --urgency-18: oklch(0.81 0.08 32);
+  --urgency-18-foreground: oklch(0.25 0.065 32);
+  --urgency-19: oklch(0.82 0.075 25);
+  --urgency-19-foreground: oklch(0.25 0.065 25);
+  --urgency-20: oklch(0.83 0.07 20);
+  --urgency-20-foreground: oklch(0.25 0.065 20);
+
+  /* Notifications */
+  --notification-info: oklch(0.59 0.19 256);
+  --notification-success: oklch(0.51 0.16 152);
+  --notification-warning: oklch(0.80 0.17 92);
+  --notification-error: oklch(0.53 0.21 27);
+
+  /* Star */
+  --star: oklch(0.82 0.175 92);
+
+  /* Roles */
+  --role-owner: oklch(0.54 0.22 299);
+  --role-owner-foreground: oklch(1 0 0);
+  --role-manager: oklch(0.59 0.19 256);
+  --role-manager-foreground: oklch(1 0 0);
+  --role-member: oklch(0.912 0.008 250);
+  --role-member-foreground: oklch(0.21 0.021 247);
+
+  /* Sections */
+  --section-essentials: oklch(0.59 0.19 256);
+  --section-essentials-bg: oklch(0.97 0.02 256);
+  --section-assignment: oklch(0.54 0.22 299);
+  --section-assignment-bg: oklch(0.97 0.02 299);
+  --section-priority: oklch(0.80 0.17 92);
+  --section-priority-bg: oklch(0.97 0.015 92);
+  --section-references: oklch(0.57 0.12 190);
+  --section-references-bg: oklch(0.97 0.01 190);
+  --section-context: oklch(0.49 0.015 250);
+  --section-context-bg: oklch(0.966 0.005 250);
 }
 
+/* ─── Dark mode ──────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.21 0.021 247);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.25 0.022 247);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.25 0.022 247);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.82 0.175 92);
+  --primary-foreground: oklch(0.21 0.021 247);
+  --secondary: oklch(0.73 0.11 92);
+  --secondary-foreground: oklch(0.21 0.021 247);
+  --muted: oklch(0.32 0.022 247);
+  --muted-foreground: oklch(0.666 0.008 250);
+  --accent: oklch(0.32 0.022 247);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.577 0.245 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.32 0.022 247);
+  --input: oklch(0.32 0.022 247);
+  --ring: oklch(0.82 0.175 92);
+
+  /* Charts */
+  --chart-1: oklch(0.59 0.19 256);
+  --chart-2: oklch(0.54 0.22 299);
+  --chart-3: oklch(0.82 0.175 92);
+  --chart-4: oklch(0.51 0.16 152);
+  --chart-5: oklch(0.57 0.12 190);
+
+  /* Sidebar */
+  --sidebar: oklch(0.14 0.01 264);
+  --sidebar-foreground: oklch(0.96 0.005 264);
+  --sidebar-primary: oklch(0.50 0.17 258);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.20 0.008 264);
+  --sidebar-accent-foreground: oklch(0.96 0.005 264);
+  --sidebar-border: oklch(0.20 0.008 264);
+  --sidebar-ring: oklch(0.595 0.19 256);
+
+  /* Status — Soft Blues (dark) */
+  --status-powder-blue: oklch(0.76 0.09 240);
+  --status-powder-blue-foreground: oklch(0.20 0.065 240);
+  --status-sky-blue: oklch(0.72 0.075 215);
+  --status-sky-blue-foreground: oklch(0.20 0.06 215);
+  --status-periwinkle: oklch(0.76 0.085 265);
+  --status-periwinkle-foreground: oklch(0.20 0.065 265);
+  --status-ice-blue: oklch(0.76 0.055 200);
+  --status-ice-blue-foreground: oklch(0.20 0.055 200);
+
+  /* Status — Soft Greens (dark) */
+  --status-mint: oklch(0.72 0.075 158);
+  --status-mint-foreground: oklch(0.20 0.065 158);
+  --status-sage: oklch(0.72 0.055 145);
+  --status-sage-foreground: oklch(0.20 0.065 145);
+  --status-seafoam: oklch(0.72 0.065 168);
+  --status-seafoam-foreground: oklch(0.20 0.065 168);
+  --status-pistachio: oklch(0.74 0.065 152);
+  --status-pistachio-foreground: oklch(0.20 0.065 152);
+
+  /* Status — Soft Yellows/Oranges (dark) */
+  --status-cream: oklch(0.77 0.09 97);
+  --status-cream-foreground: oklch(0.20 0.065 97);
+  --status-peach: oklch(0.74 0.10 55);
+  --status-peach-foreground: oklch(0.20 0.07 55);
+  --status-apricot: oklch(0.73 0.10 48);
+  --status-apricot-foreground: oklch(0.20 0.07 48);
+  --status-buttercup: oklch(0.75 0.085 100);
+  --status-buttercup-foreground: oklch(0.20 0.065 100);
+
+  /* Status — Soft Pinks/Roses (dark) */
+  --status-blush: oklch(0.76 0.09 358);
+  --status-blush-foreground: oklch(0.20 0.07 358);
+  --status-rose: oklch(0.73 0.085 8);
+  --status-rose-foreground: oklch(0.20 0.07 8);
+  --status-coral: oklch(0.72 0.09 28);
+  --status-coral-foreground: oklch(0.20 0.07 28);
+  --status-mauve: oklch(0.74 0.065 340);
+  --status-mauve-foreground: oklch(0.20 0.065 340);
+
+  /* Status — Soft Purples (dark) */
+  --status-lavender: oklch(0.76 0.085 305);
+  --status-lavender-foreground: oklch(0.20 0.075 305);
+  --status-lilac: oklch(0.73 0.085 310);
+  --status-lilac-foreground: oklch(0.20 0.08 310);
+  --status-periwinkle-purple: oklch(0.73 0.075 295);
+  --status-periwinkle-purple-foreground: oklch(0.20 0.075 295);
+
+  /* Status — Soft Grays (dark) */
+  --status-pearl: oklch(0.72 0.015 250);
+  --status-pearl-foreground: oklch(0.20 0.025 250);
+
+  /* Urgency 1–4 (dark) */
+  --urgency-1: oklch(0.73 0.065 215);
+  --urgency-1-foreground: oklch(0.15 0.04 215);
+  --urgency-2: oklch(0.72 0.065 210);
+  --urgency-2-foreground: oklch(0.15 0.04 210);
+  --urgency-3: oklch(0.71 0.06 205);
+  --urgency-3-foreground: oklch(0.15 0.04 205);
+  --urgency-4: oklch(0.70 0.06 200);
+  --urgency-4-foreground: oklch(0.15 0.04 200);
+
+  /* Urgency 5–8 (dark) */
+  --urgency-5: oklch(0.69 0.055 195);
+  --urgency-5-foreground: oklch(0.15 0.04 195);
+  --urgency-6: oklch(0.68 0.055 192);
+  --urgency-6-foreground: oklch(0.15 0.04 192);
+  --urgency-7: oklch(0.67 0.05 188);
+  --urgency-7-foreground: oklch(0.15 0.04 188);
+  --urgency-8: oklch(0.66 0.05 182);
+  --urgency-8-foreground: oklch(0.15 0.04 182);
+
+  /* Urgency 9–12 (dark) */
+  --urgency-9: oklch(0.77 0.14 106);
+  --urgency-9-foreground: oklch(0.15 0.055 106);
+  --urgency-10: oklch(0.76 0.15 100);
+  --urgency-10-foreground: oklch(0.15 0.055 100);
+  --urgency-11: oklch(0.75 0.155 98);
+  --urgency-11-foreground: oklch(0.15 0.06 98);
+  --urgency-12: oklch(0.74 0.16 95);
+  --urgency-12-foreground: oklch(0.15 0.06 95);
+
+  /* Urgency 13–16 (dark) */
+  --urgency-13: oklch(0.73 0.16 85);
+  --urgency-13-foreground: oklch(0.15 0.06 85);
+  --urgency-14: oklch(0.72 0.165 78);
+  --urgency-14-foreground: oklch(0.15 0.065 78);
+  --urgency-15: oklch(0.71 0.165 65);
+  --urgency-15-foreground: oklch(0.15 0.065 65);
+  --urgency-16: oklch(0.70 0.17 55);
+  --urgency-16-foreground: oklch(0.15 0.07 55);
+
+  /* Urgency 17–20 (dark) */
+  --urgency-17: oklch(0.72 0.165 42);
+  --urgency-17-foreground: oklch(0.15 0.07 42);
+  --urgency-18: oklch(0.73 0.16 32);
+  --urgency-18-foreground: oklch(0.15 0.07 32);
+  --urgency-19: oklch(0.74 0.155 25);
+  --urgency-19-foreground: oklch(0.15 0.07 25);
+  --urgency-20: oklch(0.75 0.15 20);
+  --urgency-20-foreground: oklch(0.15 0.07 20);
+
+  /* Notifications (dark) */
+  --notification-info: oklch(0.59 0.19 256);
+  --notification-success: oklch(0.51 0.16 152);
+  --notification-warning: oklch(0.80 0.17 92);
+  --notification-error: oklch(0.53 0.21 27);
+
+  /* Star (dark) */
+  --star: oklch(0.82 0.175 92);
+
+  /* Roles (dark) */
+  --role-owner: oklch(0.54 0.22 299);
+  --role-owner-foreground: oklch(1 0 0);
+  --role-manager: oklch(0.59 0.19 256);
+  --role-manager-foreground: oklch(1 0 0);
+  --role-member: oklch(0.32 0.022 247);
+  --role-member-foreground: oklch(0.666 0.008 250);
+
+  /* Sections (dark) */
+  --section-essentials: oklch(0.59 0.19 256);
+  --section-essentials-bg: oklch(0.22 0.04 256);
+  --section-assignment: oklch(0.54 0.22 299);
+  --section-assignment-bg: oklch(0.22 0.04 299);
+  --section-priority: oklch(0.80 0.17 92);
+  --section-priority-bg: oklch(0.25 0.04 92);
+  --section-references: oklch(0.57 0.12 190);
+  --section-references-bg: oklch(0.22 0.03 190);
+  --section-context: oklch(0.49 0.015 250);
+  --section-context-bg: oklch(0.24 0.01 250);
 }
 
 @layer base {
@@ -132,5 +591,96 @@
 @layer components {
   .input {
     @apply w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring;
+  }
+}
+
+/* ─── Container ──────────────────────────────────────────── */
+@utility container {
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+/* ─── Utilities ──────────────────────────────────────────── */
+@layer utilities {
+  /* Micro-interactions */
+  .hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+  .hover-lift:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-200 ease-out;
+  }
+  .hover-scale:hover {
+    @apply scale-105;
+  }
+
+  .hover-glow {
+    @apply transition-shadow duration-300 ease-out;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 20px color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+
+  /* Status bar on the left edge of a card/row */
+  .status-indicator {
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-full opacity-80;
+  }
+
+  /* Reveal actions on group hover */
+  .slide-in-actions {
+    @apply opacity-0 translate-x-2 transition-all duration-200 ease-out;
+  }
+  .group:hover .slide-in-actions {
+    @apply opacity-100 translate-x-0;
+  }
+
+  /* Named animation helpers */
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out both;
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.4s ease-out both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out both;
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out both;
+  }
+  .animate-wiggle {
+    animation: wiggle 0.5s ease-in-out;
+  }
+  .animate-count-up {
+    animation: count-up 0.3s ease-out both;
+  }
+
+  /* Scrollbar hide — useful for horizontal carousels and sidebars */
+  .scrollbar-hide {
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Typography helpers */
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Glassmorphism surface */
+  .glass {
+    @apply backdrop-blur-md bg-background/60 border border-border/50;
   }
 }
