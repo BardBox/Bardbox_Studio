@@ -24,6 +24,7 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface AppShellProps {
   displayName: string;
@@ -173,13 +174,16 @@ function SidebarContent({
             <p className="text-sm font-medium truncate">{displayName}</p>
             <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
           </div>
-          <button
-            onClick={onSignOut}
-            title="Sign out"
-            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="size-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggle />
+            <button
+              onClick={onSignOut}
+              title="Sign out"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <LogOut className="size-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
