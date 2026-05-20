@@ -2,5 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "chmod +x ./node_modules/.bin/next && npm run build",
   "devCommand": "next dev",
-  "installCommand": "npm install"
+  "installCommand": "rm -rf node_modules && npm ci --no-audit --prefer-offline --no-progress"
 }
