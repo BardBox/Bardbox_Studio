@@ -38,7 +38,11 @@ export async function POST(req: NextRequest) {
   const actor = await assertManagerOrAdmin();
   if (!actor) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-  const { full_name, email, role, max_concurrent_tasks = 10 } = await req.json();
+  const {
+    full_name, email, role, max_concurrent_tasks = 10,
+    employee_id, designation, date_of_joining, employment_type,
+    date_of_birth, emergency_contact,
+  } = await req.json();
   if (!full_name || !email || !role) {
     return NextResponse.json({ error: 'full_name, email, and role are required' }, { status: 400 });
   }
@@ -65,7 +69,15 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
-    { id: linkData.user.id, full_name, role, email, max_concurrent_tasks, is_active: true },
+    {
+      id: linkData.user.id, full_name, role, email, max_concurrent_tasks, is_active: true,
+      ...(employee_id        && { employee_id }),
+      ...(designation        && { designation }),
+      ...(date_of_joining    && { date_of_joining }),
+      ...(employment_type    && { employment_type }),
+      ...(date_of_birth      && { date_of_birth }),
+      ...(emergency_contact  && { emergency_contact }),
+    },
     { onConflict: 'id' }
   );
 

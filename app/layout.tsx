@@ -1,12 +1,25 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Poppins, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import 'primeicons/primeicons.css';
+import 'primereact/resources/primereact.min.css';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
+import { PrimeProvider } from '@/components/shared/PrimeProvider';
 
-const geistSans = Geist({ variable: '--font-sans', subsets: ['latin'] });
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
+const poppins = Poppins({
+  variable: '--font-sans',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
+const jakartaSans = Plus_Jakarta_Sans({
+  variable: '--font-heading',
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Bardbox Studio',
@@ -16,12 +29,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${poppins.variable} ${jakartaSans.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <TooltipProvider>
-            {children}
-            <Toaster richColors position="top-right" />
-          </TooltipProvider>
+          <PrimeProvider>
+            <TooltipProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+            </TooltipProvider>
+          </PrimeProvider>
         </ThemeProvider>
       </body>
     </html>

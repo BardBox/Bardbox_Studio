@@ -5,30 +5,28 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import type { UserRole } from '@/lib/types';
+import type { NavEntry, NavItem } from '@/lib/nav';
+import { isNavGroup } from '@/lib/nav';
 import { AiAssistant } from './AiAssistant';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
-  ListChecks,
-  Inbox,
-  FilePlus,
-  CalendarDays,
-  MonitorPlay,
-  CheckCircle2,
-  Building2,
-  Users,
-  Umbrella,
-  Pencil,
-  Shield,
-  Settings,
-  LogOut,
-  Menu,
+  LayoutDashboard, ListChecks, Inbox, FilePlus, CalendarDays,
+  MonitorPlay, CheckCircle2, Building2, Users, Umbrella, Pencil,
+  Shield, Settings, ShieldCheck, LogOut, Menu, UserCircle,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard, ListChecks, Inbox, FilePlus, CalendarDays,
+  MonitorPlay, CheckCircle2, Building2, Users, Umbrella, Pencil,
+  Shield, Settings, ShieldCheck,
+};
 
 interface AppShellProps {
   displayName: string;
   role: UserRole;
+  nav: NavEntry[];
   children: React.ReactNode;
 }
 
@@ -42,74 +40,13 @@ const ROLE_LABELS: Record<UserRole, string> = {
   developer: 'Developer',
 };
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  exact?: boolean;
-}
-
-type NavEntry = NavItem | { group: string; items: NavItem[] };
-
-function isGroup(e: NavEntry): e is { group: string; items: NavItem[] } {
-  return 'group' in e;
-}
-
-const NAV: NavEntry[] = [
-  { href: '/manager', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  {
-    group: 'Operations',
-    items: [
-      { href: '/manager/tasks',    label: 'All Tasks',   icon: ListChecks },
-      { href: '/manager/requests', label: 'Requests',    icon: Inbox },
-      { href: '/request-task',     label: 'New Request', icon: FilePlus },
-    ],
-  },
-  {
-    group: 'Content',
-    items: [
-      { href: '/content',       label: 'Calendar',     icon: CalendarDays },
-      { href: '/smo',           label: 'SMO View',     icon: MonitorPlay },
-      { href: '/ceo',           label: 'CEO Overview', icon: LayoutDashboard, exact: true },
-      { href: '/ceo/approvals', label: 'Approvals',    icon: CheckCircle2 },
-    ],
-  },
-  {
-    group: 'Clients',
-    items: [
-      { href: '/manager/clients', label: 'All Clients', icon: Building2 },
-    ],
-  },
-  {
-    group: 'Team',
-    items: [
-      { href: '/admin/team', label: 'Team Load',      icon: Users },
-      { href: '/hr',         label: 'Leave',          icon: Umbrella },
-      { href: '/designer',   label: 'Designer Board', icon: Pencil },
-    ],
-  },
-  {
-    group: 'Settings',
-    items: [
-      { href: '/admin/roles',    label: 'Roles',        icon: Shield },
-      { href: '/admin/settings', label: 'App Settings', icon: Settings },
-    ],
-  },
-];
-
-function NavLink({
-  item,
-  pathname,
-  onClick,
-}: {
+function NavLink({ item, pathname, onClick }: {
   item: NavItem;
   pathname: string;
   onClick?: () => void;
 }) {
-  const active = item.exact
-    ? pathname === item.href
-    : pathname.startsWith(item.href);
-  const Icon = item.icon;
+  const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  const Icon = ICON_MAP[item.iconName] ?? LayoutDashboard;
   return (
     <Link
       href={item.href}
@@ -127,15 +64,10 @@ function NavLink({
   );
 }
 
-function SidebarContent({
-  displayName,
-  role,
-  pathname,
-  onNavClick,
-  onSignOut,
-}: {
+function SidebarContent({ displayName, role, nav, pathname, onNavClick, onSignOut }: {
   displayName: string;
   role: UserRole;
+  nav: NavEntry[];
   pathname: string;
   onNavClick?: () => void;
   onSignOut: () => void;
@@ -147,8 +79,8 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
-        {NAV.map((entry) => {
-          if (isGroup(entry)) {
+        {nav.map((entry) => {
+          if (isNavGroup(entry)) {
             return (
               <div key={entry.group}>
                 <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
@@ -170,10 +102,13 @@ function SidebarContent({
 
       <div className="border-t px-4 py-4 shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
-          </div>
+          <Link href="/profile" className="min-w-0 flex items-center gap-2 group" onClick={onNavClick}>
+            <UserCircle className="size-5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
+            </div>
+          </Link>
           <div className="flex items-center gap-2 shrink-0">
             <ThemeToggle />
             <button
@@ -190,7 +125,7 @@ function SidebarContent({
   );
 }
 
-export function AppShell({ displayName, role, children }: AppShellProps) {
+export function AppShell({ displayName, role, nav, children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -202,9 +137,7 @@ export function AppShell({ displayName, role, children }: AppShellProps) {
   }
 
   const sidebarProps = {
-    displayName,
-    role,
-    pathname,
+    displayName, role, nav, pathname,
     onNavClick: () => setMobileOpen(false),
     onSignOut: handleSignOut,
   };

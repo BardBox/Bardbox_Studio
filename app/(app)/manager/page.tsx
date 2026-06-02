@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+﻿import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { ManagerDashboard } from '@/components/manager/ManagerDashboard';
 import { CreateTaskDialog } from '@/components/manager/CreateTaskDialog';
@@ -11,7 +11,7 @@ export default async function ManagerPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   // IST = UTC+5:30; compute today in IST regardless of server timezone
@@ -48,11 +48,11 @@ export default async function ManagerPage() {
       .select('*')
       .limit(30),
 
-    // Currently in_progress — what each person is working on right now
+    // Currently working_on_it — what each person is working on right now
     supabase
       .from('task_pipeline_health')
       .select('*')
-      .eq('task_status', 'in_progress')
+      .eq('task_status', 'working_on_it')
       .order('internal_deadline', { ascending: true }),
 
     // Overdue or blocked tasks needing manager attention
@@ -87,7 +87,7 @@ export default async function ManagerPage() {
     <div>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Manager Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">{todayStr}</p>
         </div>
         <CreateTaskDialog clients={(clients ?? []) as Client[]} />

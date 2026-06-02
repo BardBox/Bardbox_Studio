@@ -60,7 +60,7 @@ select
   p.role,
   p.max_concurrent_tasks,
   count(t.id) filter (where t.status = 'todo')                               as todo_count,
-  count(t.id) filter (where t.status = 'in_progress')                        as in_progress_count,
+  count(t.id) filter (where t.status = 'working_on_it')                      as working_on_it_count,
   count(t.id) filter (where t.status = 'submitted')                          as submitted_count,
   count(t.id) filter (where t.status = 'blocked')                            as blocked_count,
   count(t.id) filter (

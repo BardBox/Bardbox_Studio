@@ -30,7 +30,11 @@ interface Props {
 
 const PLATFORMS = ['instagram', 'facebook', 'twitter', 'linkedin', 'youtube', 'tiktok', 'other'];
 const CONTENT_TYPES = ['post', 'reel', 'story', 'carousel', 'video', 'graphic', 'other'];
-const NONE = '__none__';
+const PRIORITIES = [
+  { value: 'low',    label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high',   label: 'High' },
+];
 
 interface Suggestion { suggested_name: string; reason: string }
 
@@ -41,6 +45,7 @@ export function CreateTaskDialog({ clients }: Props) {
   const [clientName, setClientName] = useState('');
   const [platform, setPlatform] = useState('');
   const [contentType, setContentType] = useState('');
+  const [priority, setPriority] = useState('medium');
   const [postingDate, setPostingDate] = useState('');
   const [brief, setBrief] = useState('');
   const [caption, setCaption] = useState('');
@@ -102,6 +107,7 @@ export function CreateTaskDialog({ clients }: Props) {
           platform,
           content_type: contentType,
           posting_date: postingDate,
+          priority,
           brief: brief || undefined,
           caption: caption || undefined,
           hashtags: hashtags || undefined,
@@ -131,7 +137,7 @@ export function CreateTaskDialog({ clients }: Props) {
   }
 
   function resetForm() {
-    setClientName(''); setPlatform(''); setContentType('');
+    setClientName(''); setPlatform(''); setContentType(''); setPriority('medium');
     setPostingDate(''); setBrief(''); setCaption(''); setHashtags('');
     setSuggestion(null);
   }
@@ -162,12 +168,11 @@ export function CreateTaskDialog({ clients }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Client *</Label>
-                <Select value={clientName || NONE} onValueChange={v => setClientName(!v || v === NONE ? '' : v)}>
+                <Select value={clientName || undefined} onValueChange={v => setClientName(v ?? '')}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Select client…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>— select —</SelectItem>
                     {clients.filter(c => c.is_active).map(c => (
                       <SelectItem key={String(c.id)} value={c.name}>{c.name}</SelectItem>
                     ))}
@@ -177,12 +182,11 @@ export function CreateTaskDialog({ clients }: Props) {
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Platform *</Label>
-                <Select value={platform || NONE} onValueChange={v => setPlatform(!v || v === NONE ? '' : v)}>
+                <Select value={platform || undefined} onValueChange={v => setPlatform(v ?? '')}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Select platform…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>— select —</SelectItem>
                     {PLATFORMS.map(p => (
                       <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
                     ))}
@@ -191,16 +195,15 @@ export function CreateTaskDialog({ clients }: Props) {
               </div>
             </div>
 
-            {/* Row 2: Content Type + Posting Date */}
+            {/* Row 2: Content Type + Priority */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Content Type *</Label>
-                <Select value={contentType || NONE} onValueChange={v => setContentType(!v || v === NONE ? '' : v)}>
+                <Select value={contentType || undefined} onValueChange={v => setContentType(v ?? '')}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Select type…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>— select —</SelectItem>
                     {CONTENT_TYPES.map(t => (
                       <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
                     ))}
@@ -209,14 +212,29 @@ export function CreateTaskDialog({ clients }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Posting Date *</Label>
-                <Input
-                  type="date"
-                  value={postingDate}
-                  onChange={e => setPostingDate(e.target.value)}
-                  className="h-9 text-sm"
-                />
+                <Label className="text-xs">Priority</Label>
+                <Select value={priority} onValueChange={v => setPriority(v ?? 'medium')}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map(p => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+
+            {/* Row 3: Posting Date */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Posting Date *</Label>
+              <Input
+                type="date"
+                value={postingDate}
+                onChange={e => setPostingDate(e.target.value)}
+                className="h-9 text-sm"
+              />
             </div>
 
             {/* Brief with AI expand */}

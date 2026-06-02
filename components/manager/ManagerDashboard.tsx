@@ -16,17 +16,18 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, statusLabel } from '@/lib/utils';
 
 type SectionKey = 'approvals' | 'overdue' | 'blocked' | 'active' | 'today';
 
 const STATUS_BADGE: Record<string, string> = {
-  todo:        'bg-status-cloud text-foreground',
-  in_progress: 'bg-status-sky text-foreground',
-  submitted:   'bg-status-daffodil text-foreground',
-  approved:    'bg-status-mint text-foreground',
-  done:        'bg-status-mint text-foreground',
-  blocked:     'bg-status-blush text-foreground',
+  todo:          'bg-status-cloud text-foreground',
+  working_on_it: 'bg-status-sky text-foreground',
+  submitted:     'bg-status-daffodil text-foreground',
+  approved:      'bg-status-mint text-foreground',
+  done:          'bg-status-mint text-foreground',
+  blocked:       'bg-status-blush text-foreground',
+  on_hold:       'bg-status-peach text-foreground',
 };
 
 const PLATFORM_BADGE: Record<string, string> = {
@@ -40,8 +41,8 @@ const PLATFORM_BADGE: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <Badge className={cn('capitalize border-0 text-xs shrink-0', STATUS_BADGE[status] ?? 'bg-muted text-foreground')}>
-      {status.replace('_', ' ')}
+    <Badge className={cn('border-0 text-xs shrink-0', STATUS_BADGE[status] ?? 'bg-muted text-foreground')}>
+      {statusLabel(status)}
     </Badge>
   );
 }

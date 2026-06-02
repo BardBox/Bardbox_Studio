@@ -31,7 +31,7 @@ export function CeoDashboard({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Executive Overview</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Executive Overview</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Full pipeline visibility across all clients and teams.
         </p>

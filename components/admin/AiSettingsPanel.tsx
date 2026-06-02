@@ -15,7 +15,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Provider = 'gemini' | 'ollama' | 'openai';
+type Provider = 'gemini' | 'groq' | 'anthropic' | 'openai' | 'ollama';
 
 interface AiSettings {
   provider: Provider;
@@ -23,7 +23,7 @@ interface AiSettings {
   base_url: string;
   api_key: string;
   has_db_key: boolean;
-  has_env_key: boolean;
+  env_key_map: Record<Provider, boolean>;
 }
 
 interface TrainingDoc {
@@ -44,9 +44,27 @@ interface Props {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PROVIDER_LABELS: Record<Provider, string> = {
-  gemini: 'Google Gemini',
-  ollama: 'Ollama (local / self-hosted)',
-  openai: 'OpenAI',
+  gemini:    'Google Gemini',
+  groq:      'Groq (Free)',
+  anthropic: 'Anthropic Claude',
+  openai:    'OpenAI',
+  ollama:    'Ollama (self-hosted)',
+};
+
+const PROVIDER_DESC: Record<Provider, string> = {
+  gemini:    'Google · API key · 1,500 req/day free',
+  groq:      'Free tier · Llama / Mixtral · Fast',
+  anthropic: 'Claude Haiku / Sonnet / Opus',
+  openai:    'GPT-4o-mini / GPT-4o · API key',
+  ollama:    'Runs locally · No cost · Private',
+};
+
+const PROVIDER_ICON: Record<Provider, string> = {
+  gemini:    '✦',
+  groq:      '⚡',
+  anthropic: '◈',
+  openai:    '◆',
+  ollama:    '🦙',
 };
 
 const GEMINI_MODELS = [
@@ -56,9 +74,30 @@ const GEMINI_MODELS = [
   'gemini-2.0-flash-lite',
 ];
 
+const GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it',
+];
+
+const ANTHROPIC_MODELS = [
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-6',
+  'claude-opus-4-7',
+];
+
 const OLLAMA_SUGGESTED = ['llama3.2', 'llama3.1', 'mistral', 'gemma2', 'phi3.5', 'qwen2.5'];
 
 const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'];
+
+const DEFAULT_MODEL: Record<Provider, string> = {
+  gemini:    'gemini-2.0-flash',
+  groq:      'llama-3.3-70b-versatile',
+  anthropic: 'claude-haiku-4-5-20251001',
+  openai:    'gpt-4o-mini',
+  ollama:    'llama3.2',
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
   brand_guidelines:   '🎨 Brand Guidelines',
@@ -119,6 +158,8 @@ export function AiSettingsPanel({ initialSettings, initialDocs }: Props) {
 // ─── Provider section ─────────────────────────────────────────────────────────
 
 function ProviderSection({ initial }: { initial: AiSettings }) {
+  const [savedProvider, setSavedProvider] = useState<Provider>(initial.provider);
+  const [savedModel, setSavedModel] = useState<string>(initial.model ?? '');
   const [provider, setProvider] = useState<Provider>(initial.provider);
   const [model, setModel] = useState<string>(initial.model ?? '');
   const [baseUrl, setBaseUrl] = useState(initial.base_url || 'http://100.x.x.x:11434');
@@ -129,8 +170,17 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
   const [testResult, setTestResult] = useState<{ ok: boolean; info?: string; error?: string } | null>(null);
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
+  const [showKeyInput, setShowKeyInput] = useState(false);
 
-  const hasKey = clearKey ? false : (!!apiKey || initial.has_db_key || initial.has_env_key);
+  const hasEnvKey = initial.env_key_map[provider] ?? false;
+  const hasKey = clearKey ? false : (!!apiKey || initial.has_db_key || hasEnvKey);
+
+  // Show actions only when something actually changed
+  const hasChanges =
+    provider !== savedProvider ||
+    model !== savedModel ||
+    showKeyInput ||
+    clearKey;
 
   async function fetchOllamaModels() {
     if (!baseUrl) return;
@@ -156,7 +206,7 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
     const config = {
       provider,
       model,
-      base_url: provider === 'ollama' ? baseUrl : undefined,
+      base_url: (provider === 'ollama' || provider === 'openai') ? baseUrl : undefined,
       api_key: apiKey || undefined,
     };
     const res = await fetch('/api/admin/ai-settings/test', {
@@ -171,10 +221,11 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
 
   async function handleSave() {
     setSaving(true);
+    const needsBaseUrl = provider === 'ollama' || provider === 'openai';
     const payload = {
       provider,
       model,
-      base_url: provider !== 'gemini' ? baseUrl : undefined,
+      base_url: needsBaseUrl ? baseUrl : undefined,
       api_key: clearKey ? '' : (apiKey || undefined),
     };
     const res = await fetch('/api/admin/ai-settings', {
@@ -187,6 +238,9 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
       toast.success('AI settings saved');
       setApiKey('');
       setClearKey(false);
+      setShowKeyInput(false);
+      setSavedProvider(provider);
+      setSavedModel(model);
     } else {
       const j = await res.json();
       toast.error(j.error ?? 'Failed to save');
@@ -199,22 +253,23 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
       <div className="space-y-2">
         <Label>AI Provider</Label>
         <div className="grid grid-cols-3 gap-3">
-          {(['gemini', 'ollama', 'openai'] as Provider[]).map(p => (
+          {(['gemini', 'groq', 'anthropic', 'openai', 'ollama'] as Provider[]).map(p => (
             <button
               key={p}
-              onClick={() => setProvider(p)}
-              className={`rounded-lg border-2 p-3 text-left transition-all ${
+              onClick={() => { setProvider(p); setModel(DEFAULT_MODEL[p]); setTestResult(null); setApiKey(''); setClearKey(false); setShowKeyInput(false); }}
+              className={`rounded-lg border-2 p-3 text-left transition-all relative ${
                 provider === p
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-muted-foreground/40'
               }`}
             >
-              <p className="text-sm font-semibold">
-                {p === 'gemini' ? '✦' : p === 'ollama' ? '🦙' : '◆'} {p === 'gemini' ? 'Gemini' : p === 'ollama' ? 'Ollama' : 'OpenAI'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {p === 'gemini' ? 'Google · API key' : p === 'ollama' ? 'Local · No cost' : 'OpenAI · API key'}
-              </p>
+              {savedProvider === p && (
+                <span className="absolute top-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                  Active
+                </span>
+              )}
+              <p className="text-sm font-semibold">{PROVIDER_ICON[p]} {PROVIDER_LABELS[p]}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{PROVIDER_DESC[p]}</p>
             </button>
           ))}
         </div>
@@ -292,25 +347,100 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">API Key</Label>
-            {initial.has_env_key && !clearKey && (
-              <p className="text-xs text-green-600">
-                ✓ Using key from <code>GEMINI_API_KEY</code> environment variable
-              </p>
+            {hasEnvKey && !clearKey && (
+              <p className="text-xs text-green-600">✓ Using key from <code>GEMINI_API_KEY</code> environment variable</p>
             )}
             {initial.has_db_key && !clearKey && (
               <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
             )}
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder={hasKey ? 'Leave blank to keep existing key' : 'AIza…'}
-            />
-            {(initial.has_db_key) && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} />
-                Remove stored key (revert to env var)
-              </label>
+            {savedProvider === provider && hasKey && !showKeyInput ? (
+              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
+                Change key
+              </button>
+            ) : (
+              <>
+                <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'AIza…'} />
+                {initial.has_db_key && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} />
+                    Remove stored key (revert to env var)
+                  </label>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Groq config */}
+      {provider === 'groq' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-3 text-xs text-green-800 dark:text-green-300">
+            ⚡ Groq offers a <strong>free tier</strong> — 14,400 requests/day. Get your API key at{' '}
+            <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline">console.groq.com</a>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Model</Label>
+            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
+              <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {GROQ_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">API Key</Label>
+            {hasEnvKey && !clearKey && (
+              <p className="text-xs text-green-600">✓ Using key from <code>GROQ_API_KEY</code> environment variable</p>
+            )}
+            {initial.has_db_key && !clearKey && (
+              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
+            )}
+            {savedProvider === provider && hasKey && !showKeyInput ? (
+              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
+                Change key
+              </button>
+            ) : (
+              <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'gsk_…'} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Anthropic config */}
+      {provider === 'anthropic' && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Model</Label>
+            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
+              <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ANTHROPIC_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">API Key</Label>
+            {hasEnvKey && !clearKey && (
+              <p className="text-xs text-green-600">✓ Using key from <code>ANTHROPIC_API_KEY</code> environment variable</p>
+            )}
+            {initial.has_db_key && !clearKey && (
+              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
+            )}
+            {savedProvider === provider && hasKey && !showKeyInput ? (
+              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
+                Change key
+              </button>
+            ) : (
+              <>
+                <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'sk-ant-…'} />
+                {initial.has_db_key && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} />
+                    Remove stored key (revert to env var)
+                  </label>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -339,12 +469,19 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">API Key</Label>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder="sk-…"
-            />
+            {hasEnvKey && !clearKey && (
+              <p className="text-xs text-green-600">✓ Using key from <code>OPENAI_API_KEY</code> environment variable</p>
+            )}
+            {initial.has_db_key && !clearKey && (
+              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
+            )}
+            {savedProvider === provider && hasKey && !showKeyInput ? (
+              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
+                Change key
+              </button>
+            ) : (
+              <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'sk-…'} />
+            )}
           </div>
         </div>
       )}
@@ -361,15 +498,17 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={handleTest} disabled={testing}>
-          {testing ? 'Testing…' : '⚡ Test Connection'}
-        </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save Settings'}
-        </Button>
-      </div>
+      {/* Actions — only visible when something has changed */}
+      {hasChanges && (
+        <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          <Button variant="outline" onClick={handleTest} disabled={testing}>
+            {testing ? 'Testing…' : '⚡ Test Connection'}
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save Settings'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

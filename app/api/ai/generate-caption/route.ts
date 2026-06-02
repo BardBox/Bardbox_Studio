@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { aiGenerate, RateLimitError } from '@/lib/ai';
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -24,13 +24,13 @@ export async function POST(req: NextRequest) {
 
   const clientLine = client_name ? ` for ${client_name}` : '';
   const prompt = `Write an engaging ${platform} ${content_type} caption${clientLine}.
-${brief ? `Brief: ${brief}` : 'No brief provided — write something compelling and versatile.'}
+${brief ? `Brief: ${brief}` : 'No brief provided â€” write something compelling and versatile.'}
 
 Requirements:
 - Tone: professional yet conversational, appropriate for ${platform}
 - Length: suitable for a ${content_type} (shorter for stories/reels, longer for carousels/posts)
 - Include a clear call to action
-- Generate 5–10 relevant hashtags
+- Generate 5â€“10 relevant hashtags
 
 Return ONLY valid JSON, no explanation:
 {

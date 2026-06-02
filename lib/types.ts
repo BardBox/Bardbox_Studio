@@ -1,6 +1,27 @@
 export type PressureLevel = 'overdue' | 'critical' | 'approaching' | 'comfortable' | 'completed';
-export type TaskStatus = 'todo' | 'in_progress' | 'submitted' | 'approved' | 'done' | 'blocked';
+export type TaskStatus =
+  | 'todo' | 'assigned' | 'working_on_it' | 'on_hold'
+  | 'submitted' | 'approved' | 'done' | 'blocked'
+  | 'adjusted_before' | 'adjusted_after';
+
+export type ConflictResolution = 'pending' | 'before' | 'after' | 'reassign';
+
+export interface LeaveConflictTask {
+  id: number;
+  leave_request_id: number;
+  task_id: number;
+  ai_suggestion: 'before' | 'after' | 'reassign' | null;
+  ai_reasoning: string | null;
+  resolution: ConflictResolution;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  // joined
+  task?: PipelineTask;
+  assignee_name?: string | null;
+}
 export type TaskType = 'design' | 'post';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'emergency';
 export type UserRole = 'designer' | 'smo' | 'manager' | 'admin' | 'ceo' | 'hr' | 'developer';
 export type ContentSource = 'sheets' | 'in_app' | 'import';
 export type LeaveStatus = 'pending' | 'approved' | 'denied';
@@ -9,6 +30,10 @@ export interface PipelineTask {
   task_id: number;
   task_type: TaskType;
   task_status: TaskStatus;
+  priority: TaskPriority;
+  is_emergency: boolean;
+  original_deadline: string | null;
+  rescheduled_reason: string | null;
   internal_deadline: string;
   assignee_id: string;
   manually_assigned: boolean;
@@ -24,6 +49,7 @@ export interface PipelineTask {
   posting_date: string;
   posting_time: string;
   row_status: string;
+  row_is_emergency: boolean;
   assignee_name: string | null;
   assignee_role: string | null;
   hours_until_deadline: number;
@@ -36,7 +62,7 @@ export interface TeamMember {
   role: UserRole;
   max_concurrent_tasks: number;
   todo_count: number;
-  in_progress_count: number;
+  working_on_it_count: number;
   submitted_count: number;
   blocked_count: number;
   overdue_count: number;
@@ -70,6 +96,13 @@ export interface UserProfile {
   whatsapp_number?: string | null;
   email?: string | null;
   is_active?: boolean;
+  avatar_url?: string | null;
+  employee_id?: string | null;
+  designation?: string | null;
+  date_of_joining?: string | null;
+  employment_type?: string | null;
+  date_of_birth?: string | null;
+  emergency_contact?: string | null;
 }
 
 export interface LeaveRequest {
@@ -138,6 +171,7 @@ export interface Client {
   name: string;
   is_active: boolean;
   created_at: string;
+  logo_url?: string | null;
 }
 
 export interface ContentRow {

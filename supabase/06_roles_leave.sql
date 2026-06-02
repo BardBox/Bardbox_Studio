@@ -158,7 +158,15 @@ create policy profiles_manager_write on public.profiles
 
 
 -- ---------------------------------------------------------------
--- 8. Update auto_assign_task to skip users on approved leave
+-- 8. Update auto_assign_task — weighted load score + leave awareness
+--
+-- Score = Σ (urgency_weight × complexity_weight) for each open task:
+--   Urgency:    overdue / critical (<48 h) = 3 · approaching (2–7 d) = 2 · comfortable = 1
+--   Complexity: reel / video = 3 · carousel / article / short = 2 · post / story = 1
+--
+-- Picks lowest score; skips anyone on approved leave that overlaps the deadline;
+-- respects max_concurrent_tasks cap. Fallback assigns least-loaded when all are
+-- on leave or over cap so no task is left orphaned.
 -- ---------------------------------------------------------------
 create or replace function public.auto_assign_task(p_task_id bigint)
 returns uuid
@@ -183,14 +191,35 @@ begin
 
   v_target_role := case when v_task_type = 'design' then 'designer' else 'smo' end;
 
-  -- Pick active profile with fewest open tasks, skipping anyone on approved leave
-  -- that overlaps with the task deadline date.
   select p.id
     into v_assignee
   from public.profiles p
-  left join public.tasks t
-    on t.assignee_id = p.id
-   and t.status not in ('done','approved')
+  left join (
+    select
+      t.assignee_id,
+      count(t.id)                                                        as open_count,
+      sum(
+        case
+          when t.internal_deadline < now()
+            or (t.internal_deadline - now()) < interval '48 hours'       then 3
+          when (t.internal_deadline - now()) < interval '7 days'         then 2
+          else 1
+        end
+        *
+        case cr.content_type
+          when 'reel'     then 3
+          when 'video'    then 3
+          when 'carousel' then 2
+          when 'article'  then 2
+          when 'short'    then 2
+          else 1
+        end
+      )                                                                  as load_score
+    from public.tasks t
+    join public.content_rows cr on cr.id = t.content_row_id
+    where t.status not in ('done', 'approved')
+    group by t.assignee_id
+  ) load on load.assignee_id = p.id
   where p.role = v_target_role
     and p.is_active = true
     and not exists (
@@ -199,23 +228,43 @@ begin
         and lr.status = 'approved'
         and v_deadline::date between lr.start_date and lr.end_date
     )
-  group by p.id, p.max_concurrent_tasks
-  having count(t.id) < coalesce(p.max_concurrent_tasks, 10)
-  order by count(t.id) asc, random()
+    and coalesce(load.open_count, 0) < coalesce(p.max_concurrent_tasks, 10)
+  order by coalesce(load.load_score, 0) asc, random()
   limit 1;
 
-  -- Fallback: if everyone is on leave or over cap, assign least-loaded ignoring leave
+  -- Fallback: everyone on leave or over cap — pick least-loaded ignoring leave
   if v_assignee is null then
     select p.id
       into v_assignee
     from public.profiles p
-    left join public.tasks t
-      on t.assignee_id = p.id
-     and t.status not in ('done','approved')
+    left join (
+      select
+        t.assignee_id,
+        sum(
+          case
+            when t.internal_deadline < now()
+              or (t.internal_deadline - now()) < interval '48 hours'     then 3
+            when (t.internal_deadline - now()) < interval '7 days'       then 2
+            else 1
+          end
+          *
+          case cr.content_type
+            when 'reel'     then 3
+            when 'video'    then 3
+            when 'carousel' then 2
+            when 'article'  then 2
+            when 'short'    then 2
+            else 1
+          end
+        )                                                                as load_score
+      from public.tasks t
+      join public.content_rows cr on cr.id = t.content_row_id
+      where t.status not in ('done', 'approved')
+      group by t.assignee_id
+    ) load on load.assignee_id = p.id
     where p.role = v_target_role
       and p.is_active = true
-    group by p.id
-    order by count(t.id) asc, random()
+    order by coalesce(load.load_score, 0) asc, random()
     limit 1;
   end if;
 

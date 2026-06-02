@@ -13,7 +13,7 @@ export default async function ApprovalsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Approval Queue</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Approval Queue</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Review submitted work and approve or request changes.
         </p>

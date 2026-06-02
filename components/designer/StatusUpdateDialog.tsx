@@ -25,9 +25,9 @@ export function StatusUpdateDialog({ task, onClose, onUpdate, loading }: Props) 
 
   const isSubmitted   = task.task_status === 'submitted';
   const canStart      = task.task_status === 'todo';
-  const canSubmit     = task.task_status === 'in_progress';
+  const canSubmit     = task.task_status === 'working_on_it';
   const isApproved    = task.task_status === 'approved';
-  const hasRejection  = !!task.rejection_notes && task.task_status === 'in_progress';
+  const hasRejection  = !!task.rejection_notes && task.task_status === 'working_on_it';
 
   const urlValid = designUrl.trim().startsWith('http');
 
@@ -72,7 +72,7 @@ export function StatusUpdateDialog({ task, onClose, onUpdate, loading }: Props) 
           <span className="text-sm text-muted-foreground capitalize">{task.task_status.replace('_', ' ')}</span>
         </div>
 
-        {/* Design URL input — shown when task is in_progress */}
+        {/* Design URL input — shown when task is working_on_it */}
         {canSubmit && (
           <div className="space-y-1.5">
             <Label className="text-xs">Design link (Canva / Drive / Figma) *</Label>
@@ -113,7 +113,7 @@ export function StatusUpdateDialog({ task, onClose, onUpdate, loading }: Props) 
           </Button>
 
           {canStart && (
-            <Button onClick={() => onUpdate(task.task_id, 'in_progress')} disabled={loading}>
+            <Button onClick={() => onUpdate(task.task_id, 'working_on_it')} disabled={loading}>
               {loading ? 'Updating…' : 'Start Task'}
             </Button>
           )}

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -10,7 +10,7 @@ async function getUser() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;

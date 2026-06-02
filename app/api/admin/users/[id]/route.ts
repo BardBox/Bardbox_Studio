@@ -10,7 +10,7 @@ async function assertManagerOrAdmin() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -34,7 +34,11 @@ export async function PATCH(
   const { password, ...profileFields } = body;
 
   if (Object.keys(profileFields).length > 0) {
-    const allowed = ['full_name', 'role', 'max_concurrent_tasks', 'is_active'];
+    const allowed = [
+        'full_name', 'role', 'max_concurrent_tasks', 'daily_capacity', 'is_active',
+        'employee_id', 'designation', 'date_of_joining', 'employment_type',
+        'date_of_birth', 'emergency_contact',
+      ];
     const filtered = Object.fromEntries(
       Object.entries(profileFields).filter(([k]) => allowed.includes(k))
     );

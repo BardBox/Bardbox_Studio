@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { aiGenerate, RateLimitError } from '@/lib/ai';
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -38,7 +38,7 @@ The brief should include:
 4. Specific elements to include (if any)
 5. Any do's and don'ts
 
-Keep it concise (3–5 sentences max), practical, and easy for a designer to act on.
+Keep it concise (3â€“5 sentences max), practical, and easy for a designer to act on.
 Return ONLY the brief text, no JSON, no extra formatting.`;
 
   try {

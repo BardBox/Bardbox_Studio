@@ -30,7 +30,7 @@ export function HrDashboard({ pendingLeave, recentLeave, availability, teamProfi
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Leave Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Leave Management</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Manage team availability, approve leave requests, and track absences.
           </p>

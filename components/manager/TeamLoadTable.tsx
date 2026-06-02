@@ -57,7 +57,7 @@ export function TeamLoadTable({ members }: { members: TeamMember[] }) {
                 <TableCell className="font-medium">{m.full_name}</TableCell>
                 <TableCell className="capitalize text-muted-foreground text-xs">{m.role}</TableCell>
                 <TableCell className="text-right text-muted-foreground">{m.todo_count}</TableCell>
-                <TableCell className="text-right">{m.in_progress_count}</TableCell>
+                <TableCell className="text-right">{m.working_on_it_count}</TableCell>
                 <TableCell className="text-right text-muted-foreground">{m.submitted_count}</TableCell>
                 <TableCell className={cn('text-right font-medium', m.overdue_count > 0 ? 'text-destructive' : 'text-muted-foreground')}>
                   {m.overdue_count}

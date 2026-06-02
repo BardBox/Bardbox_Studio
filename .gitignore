@@ -1,6 +1,12 @@
 .next/
 out/
 node_modules/
+
+# Playwright
+playwright-report/
+test-results/
+tests/setup/.auth-state.json
+screenshots/
 .DS_Store
 npm-debug.log*
 yarn-debug.log*

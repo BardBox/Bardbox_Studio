@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { aiChat, RateLimitError } from '@/lib/ai';
 
 export const runtime = 'nodejs';
 
-const SYSTEM_PROMPT = `You are an AI assistant built into ContentOps — a content pipeline management tool for a social media agency called Bardbox Studio.
+const SYSTEM_PROMPT = `You are an AI assistant built into ContentOps â€” a content pipeline management tool for a social media agency called Bardbox Studio.
 
 The app manages:
 - Clients (brands like Zara India, FitLife Gym, etc.)
@@ -15,16 +15,16 @@ The app manages:
 
 Workflow:
 1. Manager imports content plan (Excel/CSV) or creates content directly
-2. Manager selects rows → clicks "Create Tasks" → tasks auto-assigned to team
-3. Designer picks up task → moves to In Progress → pastes Canva/Drive link → submits
-4. Manager or CEO reviews the design link → approves
-5. SMO sees only approved tasks → posts on the platform → marks as done
+2. Manager selects rows â†’ clicks "Create Tasks" â†’ tasks auto-assigned to team
+3. Designer picks up task â†’ moves to In Progress â†’ pastes Canva/Drive link â†’ submits
+4. Manager or CEO reviews the design link â†’ approves
+5. SMO sees only approved tasks â†’ posts on the platform â†’ marks as done
 
 Platforms supported: Instagram, Facebook, LinkedIn, Twitter, YouTube, TikTok
 
 Content types: Post, Reel, Story, Carousel, Video, Graphic
 
-Task statuses: Todo → In Progress → Submitted → Approved → Done (also: Blocked)
+Task statuses: Todo â†’ In Progress â†’ Submitted â†’ Approved â†’ Done (also: Blocked)
 
 Key pages:
 - /manager: Dashboard with KPIs, team load, approval queue
@@ -35,8 +35,8 @@ Key pages:
 - /ceo/approvals: Approval queue for CEO
 
 AI features:
-- ✨ Expand Brief: turn a short idea into a designer-ready brief
-- ✨ Generate Caption: create platform-optimised caption + hashtags
+- âœ¨ Expand Brief: turn a short idea into a designer-ready brief
+- âœ¨ Generate Caption: create platform-optimised caption + hashtags
 - Import: AI auto-maps spreadsheet columns to the right fields
 
 Answer questions about the workflow, help with content ideas, explain features, or assist with any task. Be concise, friendly, and professional. If asked for content ideas, give specific, actionable suggestions tailored to the context given.`;
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

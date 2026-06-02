@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { AllTasksTable } from '@/components/manager/AllTasksTable';
-import type { PipelineTask, UserProfile } from '@/lib/types';
+import type { PipelineTask, UserProfile, UserRole } from '@/lib/types';
 
 export default async function ManagerTasksPage() {
   const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user!.id).single();
+  const userRole = (profile?.role ?? 'manager') as UserRole;
 
   const [tasksRes, teamRes, clientsRes] = await Promise.all([
     supabase
@@ -25,13 +30,14 @@ export default async function ManagerTasksPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">All Tasks</h1>
-        <p className="text-sm text-muted-foreground mt-1">Assign, filter, and manage every task.</p>
+        <h1 className="text-3xl font-bold tracking-tight">All Tasks</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">Assign, filter, and manage every task.</p>
       </div>
       <AllTasksTable
         initialTasks={(tasksRes.data ?? []) as PipelineTask[]}
         team={(teamRes.data ?? []) as UserProfile[]}
         clients={(clientsRes.data ?? []).map((c: { name: string }) => c.name)}
+        userRole={userRole}
       />
     </div>
   );

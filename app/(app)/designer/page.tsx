@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+﻿import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { KanbanBoard } from '@/components/designer/KanbanBoard';
 import type { PipelineTask } from '@/lib/types';
@@ -8,7 +8,7 @@ export default async function DesignerPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -24,7 +24,7 @@ export default async function DesignerPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">My Design Tasks</h1>
+        <h1 className="text-3xl font-bold tracking-tight">My Design Tasks</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Click a card to update its status
         </p>

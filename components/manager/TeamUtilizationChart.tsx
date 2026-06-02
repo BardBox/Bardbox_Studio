@@ -11,7 +11,7 @@ export function TeamUtilizationChart({ members }: { members: TeamMember[] }) {
   const data = members.map(m => ({
     name: m.full_name.split(' ')[0],
     Todo: m.todo_count,
-    'In Progress': m.in_progress_count,
+    'In Progress': m.working_on_it_count,
     Submitted: m.submitted_count,
     Overdue: m.overdue_count,
   }));

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -9,7 +9,7 @@ export default async function AdminSettingsPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -34,28 +34,40 @@ export default async function AdminSettingsPage() {
     .order('category')
     .order('title');
 
+  type AiProvider = 'gemini' | 'groq' | 'anthropic' | 'openai' | 'ollama';
+
+  const savedProvider = (aiSettings?.provider ?? 'gemini') as AiProvider;
+
+  const envKeyMap: Record<AiProvider, boolean> = {
+    gemini:    !!process.env.GEMINI_API_KEY,
+    groq:      !!process.env.GROQ_API_KEY,
+    anthropic: !!process.env.ANTHROPIC_API_KEY,
+    openai:    !!process.env.OPENAI_API_KEY,
+    ollama:    false,
+  };
+
   const settings = aiSettings
     ? {
-        provider: aiSettings.provider as 'gemini' | 'ollama' | 'openai',
+        provider: savedProvider,
         model: aiSettings.model,
         base_url: aiSettings.base_url ?? '',
-        api_key: '', // never send the real key to the client
+        api_key: '',
         has_db_key: !!aiSettings.api_key,
-        has_env_key: !!process.env.GEMINI_API_KEY,
+        env_key_map: envKeyMap,
       }
     : {
-        provider: 'gemini' as const,
+        provider: 'gemini' as AiProvider,
         model: 'gemini-2.0-flash',
         base_url: '',
         api_key: '',
         has_db_key: false,
-        has_env_key: !!process.env.GEMINI_API_KEY,
+        env_key_map: envKeyMap,
       };
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">AI provider configuration and knowledge base</p>
       </div>
       <AiSettingsPanel

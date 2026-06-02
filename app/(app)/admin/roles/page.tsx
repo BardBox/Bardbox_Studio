@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -9,7 +9,7 @@ export default async function RolesPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -44,7 +44,7 @@ export default async function RolesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Roles</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Roles</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Define and manage team roles. Assign roles to members via the Team page.
         </p>

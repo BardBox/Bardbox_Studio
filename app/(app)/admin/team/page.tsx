@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -10,7 +10,7 @@ export default async function TeamPage() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,6 +35,7 @@ export default async function TeamPage() {
     role: p.role,
     is_active: p.is_active,
     max_concurrent_tasks: p.max_concurrent_tasks,
+    daily_capacity: p.daily_capacity ?? 3,
     created_at: p.created_at,
   }));
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -10,7 +10,7 @@ async function requireAdmin() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -18,7 +18,7 @@ async function requireAdmin() {
   return p && ['admin', 'manager'].includes(p.role) ? user : null;
 }
 
-// GET — list all training docs
+// GET â€” list all training docs
 export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('ai_training_docs')
@@ -29,7 +29,7 @@ export async function GET() {
   return NextResponse.json(data ?? []);
 }
 
-// POST — create training doc
+// POST â€” create training doc
 export async function POST(req: NextRequest) {
   const user = await requireAdmin();
   if (!user) return NextResponse.json({ error: 'forbidden' }, { status: 403 });

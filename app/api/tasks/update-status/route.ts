@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -8,26 +8,26 @@ export const runtime = 'nodejs';
 
 const ALLOWED_TRANSITIONS: Partial<Record<UserRole, Partial<Record<TaskStatus, TaskStatus[]>>>> = {
   designer: {
-    todo:        ['in_progress'],
-    in_progress: ['submitted'],
+    todo:        ['working_on_it'],
+    working_on_it: ['submitted'],
   },
   smo: {
-    todo:        ['in_progress'],
-    in_progress: ['done'],
+    todo:        ['working_on_it'],
+    working_on_it: ['done'],
   },
   manager: {
-    todo:        ['in_progress', 'submitted', 'approved', 'done', 'blocked'],
-    in_progress: ['submitted', 'approved', 'done', 'blocked'],
+    todo:        ['working_on_it', 'submitted', 'approved', 'done', 'blocked'],
+    working_on_it: ['submitted', 'approved', 'done', 'blocked'],
     submitted:   ['approved', 'done', 'blocked'],
     approved:    ['done'],
-    blocked:     ['todo', 'in_progress'],
+    blocked:     ['todo', 'working_on_it'],
   },
   admin: {
-    todo:        ['in_progress', 'submitted', 'approved', 'done', 'blocked'],
-    in_progress: ['submitted', 'approved', 'done', 'blocked'],
+    todo:        ['working_on_it', 'submitted', 'approved', 'done', 'blocked'],
+    working_on_it: ['submitted', 'approved', 'done', 'blocked'],
     submitted:   ['approved', 'done', 'blocked'],
     approved:    ['done'],
-    blocked:     ['todo', 'in_progress'],
+    blocked:     ['todo', 'working_on_it'],
   },
   ceo: {
     submitted: ['approved', 'done'],
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   const allowed = ALLOWED_TRANSITIONS[role]?.[task.status as TaskStatus] ?? [];
   if (!allowed.includes(newStatus)) {
     return NextResponse.json(
-      { error: `transition ${task.status} → ${newStatus} not allowed for role ${role}` },
+      { error: `transition ${task.status} â†’ ${newStatus} not allowed for role ${role}` },
       { status: 422 }
     );
   }

@@ -1,0 +1,203 @@
+/*
+ * Loaded AFTER the lara theme — uses !important only where lara has
+ * higher-specificity selectors (.p-sortable-column, etc.) that would otherwise win.
+ */
+
+/* ── Header cells ─────────────────────────────────────────────────── */
+.p-datatable .p-datatable-thead > tr > th,
+.p-datatable .p-datatable-thead > tr > th.p-sortable-column {
+  background: var(--card) !important;
+  color: var(--muted-foreground) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+
+.p-datatable .p-datatable-thead > tr > th.p-sortable-column:hover,
+.p-datatable .p-datatable-thead > tr > th.p-sortable-column.p-highlight {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+/* ── Body rows ────────────────────────────────────────────────────── */
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  transition: background-color 0.1s;
+}
+
+.p-datatable .p-datatable-tbody > tr:last-child {
+  border-bottom: none !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover > td {
+  background: var(--muted) !important;
+}
+
+/* ── Empty message ────────────────────────────────────────────────── */
+.p-datatable .p-datatable-emptymessage > td {
+  text-align: center !important;
+  color: var(--muted-foreground) !important;
+  border: none !important;
+  padding: 2.5rem 1rem !important;
+}
+
+/* ── Sort icons ───────────────────────────────────────────────────── */
+.p-sortable-column-icon {
+  color: var(--muted-foreground) !important;
+  font-size: 0.65rem !important;
+}
+
+.p-sortable-column.p-highlight .p-sortable-column-icon {
+  color: var(--primary) !important;
+}
+
+/* ── Filter menu button (funnel icon in column header) ────────────── */
+.p-column-filter-menu-button,
+.p-column-filter-menu-button.p-link {
+  color: var(--muted-foreground) !important;
+  background: transparent !important;
+  border-radius: 0.25rem !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.p-column-filter-menu-button:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.p-column-filter-menu-button.p-column-filter-menu-button-active {
+  color: var(--primary) !important;
+  background: transparent !important;
+}
+
+/* ── Filter overlay popup ─────────────────────────────────────────── */
+.p-column-filter-overlay,
+.p-column-filter-overlay.p-component {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+  color: var(--popover-foreground) !important;
+  min-width: 14rem;
+}
+
+.p-column-filter-overlay .p-column-filter-row-item {
+  color: var(--popover-foreground) !important;
+  border-radius: 0.25rem !important;
+}
+
+.p-column-filter-overlay .p-column-filter-row-item:hover {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+.p-column-filter-overlay .p-column-filter-row-item.p-highlight {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.p-column-filter-buttonbar {
+  background: var(--muted) !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* ── PrimeReact Dropdown inside filter popup ──────────────────────── */
+.p-column-filter-overlay .p-dropdown,
+.p-column-filter-overlay .p-inputtext {
+  background: var(--background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+  border-radius: 0.375rem !important;
+}
+
+.p-column-filter-overlay .p-dropdown-label {
+  color: var(--foreground) !important;
+  font-size: 0.875rem !important;
+}
+
+.p-column-filter-overlay .p-dropdown-trigger {
+  color: var(--muted-foreground) !important;
+}
+
+.p-column-filter-overlay .p-dropdown-panel,
+.p-dropdown-panel {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.1) !important;
+}
+
+.p-dropdown-item {
+  color: var(--popover-foreground) !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.25rem !important;
+}
+
+.p-dropdown-item:hover,
+.p-dropdown-item.p-focus {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+.p-dropdown-item.p-highlight {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+/* ── Paginator ────────────────────────────────────────────────────── */
+.p-paginator {
+  background: var(--background) !important;
+  border: none !important;
+  border-top: 1px solid var(--border) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.p-paginator .p-paginator-first,
+.p-paginator .p-paginator-prev,
+.p-paginator .p-paginator-next,
+.p-paginator .p-paginator-last,
+.p-paginator .p-paginator-pages .p-paginator-page {
+  color: var(--foreground) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0.375rem !important;
+}
+
+.p-paginator .p-paginator-first:hover,
+.p-paginator .p-paginator-prev:hover,
+.p-paginator .p-paginator-next:hover,
+.p-paginator .p-paginator-last:hover,
+.p-paginator .p-paginator-pages .p-paginator-page:hover {
+  background: var(--muted) !important;
+}
+
+.p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.p-paginator .p-paginator-rpp-options .p-dropdown {
+  background: var(--background) !important;
+  border-color: var(--border) !important;
+  border-radius: 0.375rem !important;
+  color: var(--foreground) !important;
+}
+
+.p-paginator .p-paginator-rpp-options .p-dropdown-label {
+  color: var(--foreground) !important;
+  font-size: 0.8rem !important;
+}

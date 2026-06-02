@@ -2,13 +2,14 @@
  * lib/ai.ts — Unified AI client
  * Reads provider config from `ai_settings` table (falls back to env vars).
  * Injects `ai_training_docs` into system prompts when withTraining=true.
- * Supports: Gemini | Ollama | OpenAI-compatible endpoints
+ * Supports: Gemini | Groq | Anthropic | OpenAI | Ollama
  */
 
 import { supabaseAdmin } from './supabase/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
-export type AiProvider = 'gemini' | 'ollama' | 'openai';
+export type AiProvider = 'gemini' | 'ollama' | 'openai' | 'groq' | 'anthropic';
 
 export interface AiConfig {
   provider: AiProvider;
@@ -107,6 +108,8 @@ export async function aiChat(
   const system = systemInstruction + training;
 
   if (config.provider === 'gemini') return geminiChat(messages, system, config);
+  if (config.provider === 'anthropic') return anthropicChat(messages, system, config);
+  if (config.provider === 'groq') return openaiChat(messages, system, resolveGroqConfig(config));
   return openaiChat(messages, system, config);
 }
 
@@ -121,6 +124,8 @@ export async function aiGenerate(
   const fullPrompt = training ? `${training}\n\n${prompt}` : prompt;
 
   if (config.provider === 'gemini') return geminiGenerate(fullPrompt, config);
+  if (config.provider === 'anthropic') return anthropicGenerate(fullPrompt, config);
+  if (config.provider === 'groq') return openaiChat([{ role: 'user', text: fullPrompt }], '', resolveGroqConfig(config));
   return openaiChat([{ role: 'user', text: fullPrompt }], '', config);
 }
 
@@ -138,7 +143,10 @@ export async function testAiConnection(
       const models = ((data.models ?? []) as { name: string }[]).map(m => m.name);
       return { ok: true, info: `Connected. Models: ${models.slice(0, 5).join(', ')}` };
     }
-    const reply = await aiGenerate('Reply with only the word OK.', false);
+    let reply: string;
+    if (config.provider === 'anthropic') reply = await anthropicGenerate('Reply with only the word OK.', config);
+    else if (config.provider === 'groq') reply = await openaiChat([{ role: 'user', text: 'Reply with only the word OK.' }], '', resolveGroqConfig(config));
+    else reply = await aiGenerate('Reply with only the word OK.', false);
     return { ok: true, info: `${config.provider}/${config.model} → "${reply.slice(0, 60)}"` };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message?.slice(0, 300) };
@@ -175,6 +183,44 @@ async function geminiGenerate(prompt: string, config: AiConfig): Promise<string>
     const result = await model.generateContent(prompt);
     return result.response.text().trim();
   } catch (e) { throwIfRateLimit(e); throw e; }
+}
+
+// ─── Groq (OpenAI-compatible, free tier) ─────────────────────────────────────
+
+function resolveGroqConfig(config: AiConfig): AiConfig {
+  return {
+    ...config,
+    provider: 'openai',
+    base_url: 'https://api.groq.com/openai',
+    api_key: config.api_key || process.env.GROQ_API_KEY,
+  };
+}
+
+// ─── Anthropic (Claude) ───────────────────────────────────────────────────────
+
+async function anthropicChat(messages: AiMsg[], system: string, config: AiConfig): Promise<string> {
+  const key = config.api_key || process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('Anthropic API key not configured');
+  const client = new Anthropic({ apiKey: key });
+  const response = await client.messages.create({
+    model: config.model,
+    max_tokens: 2048,
+    system: system || undefined,
+    messages: messages.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
+  });
+  return ((response.content[0] as { text: string }).text ?? '').trim();
+}
+
+async function anthropicGenerate(prompt: string, config: AiConfig): Promise<string> {
+  const key = config.api_key || process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('Anthropic API key not configured');
+  const client = new Anthropic({ apiKey: key });
+  const response = await client.messages.create({
+    model: config.model,
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return ((response.content[0] as { text: string }).text ?? '').trim();
 }
 
 // ─── OpenAI-compatible (Ollama + OpenAI) ─────────────────────────────────────

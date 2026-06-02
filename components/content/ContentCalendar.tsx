@@ -49,14 +49,14 @@ function platformAbbr(p: string) {
 
 const TASK_STATUS_COLORS: Record<string, string> = {
   todo: 'bg-gray-100 text-gray-700',
-  in_progress: 'bg-blue-100 text-blue-700',
+  working_on_it: 'bg-blue-100 text-blue-700',
   submitted: 'bg-yellow-100 text-yellow-700',
   approved: 'bg-emerald-100 text-emerald-700',
   done: 'bg-emerald-200 text-emerald-800',
   blocked: 'bg-red-100 text-red-700',
 };
 
-const ALL_TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'submitted', 'approved', 'done', 'blocked'];
+const ALL_TASK_STATUSES: TaskStatus[] = ['todo', 'working_on_it', 'submitted', 'approved', 'done', 'blocked'];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

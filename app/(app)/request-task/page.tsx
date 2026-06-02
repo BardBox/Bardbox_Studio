@@ -11,10 +11,10 @@ export default async function RequestTaskPage() {
   ]);
 
   return (
-    <div className="max-w-xl mx-auto space-y-4">
+    <div className="max-w-xl mx-auto space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Request a Task</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-3xl font-bold tracking-tight">Request a Task</h1>
+        <p className="text-sm text-muted-foreground mt-1.5">
           Submit a content task for manager approval. You'll be notified once it's reviewed.
         </p>
       </div>

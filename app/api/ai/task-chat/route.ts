@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} } }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -48,7 +48,7 @@ ASSIGNED TO: ${task.assignee_name ?? 'Unknown'} (${task.assignee_role ?? 'team m
 CURRENT STATUS: ${task.task_status}
 `.trim();
 
-  const systemInstruction = `You are a creative AI assistant embedded inside ContentOps — the content management system for Bardbox Studio, a digital marketing agency.
+  const systemInstruction = `You are a creative AI assistant embedded inside ContentOps â€” the content management system for Bardbox Studio, a digital marketing agency.
 
 A team member is working on a specific task and has a question or needs creative help. Here are the task details:
 
@@ -59,7 +59,7 @@ Your role depends on the task type:
 - POST tasks (SMO): Help write or refine captions, suggest hashtags, advise on emoji use, posting timing, engagement hooks, and platform-specific best practices.
 
 Guidelines:
-- Be concise, specific, and actionable — no generic advice.
+- Be concise, specific, and actionable â€” no generic advice.
 - Give multiple creative options when relevant (e.g. "Option A: bold minimal, Option B: vibrant lifestyle").
 - Reference the client, platform, and content type in your suggestions.
 - Encourage the team member and be collaborative.

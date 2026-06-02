@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const allowed = ['name', 'is_active'];
+  const allowed = ['name', 'is_active', 'logo_url'];
   const body = await req.json();
   const update = Object.fromEntries(
     Object.entries(body).filter(([k]) => allowed.includes(k))

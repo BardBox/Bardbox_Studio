@@ -9,7 +9,7 @@ interface Props {
 
 const STATUS_META: { key: string; label: string; color: string }[] = [
   { key: 'todo',        label: 'To Do',       color: '#94a3b8' },
-  { key: 'in_progress', label: 'In Progress', color: '#60a5fa' },
+  { key: 'working_on_it', label: 'In Progress', color: '#60a5fa' },
   { key: 'submitted',   label: 'Submitted',   color: '#fbbf24' },
   { key: 'approved',    label: 'Approved',    color: '#34d399' },
   { key: 'done',        label: 'Done',        color: '#10b981' },

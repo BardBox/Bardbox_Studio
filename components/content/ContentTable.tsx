@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,6 +27,25 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ImportDialog } from './ImportDialog';
+
+interface AiSuggestion {
+  task_id: number;
+  task_type: string;
+  assignee_name: string;
+  client: string;
+  platform: string;
+  posting_date: string;
+  deadline: string;
+  conflict_type: 'leave_overlap' | 'over_capacity' | 'tight_deadline';
+  leave_start?: string;
+  leave_end?: string;
+  current_load?: number;
+  max_capacity?: number;
+  hours_until_deadline?: number;
+  suggestion: string;
+  reasoning: string;
+  urgency: 'high' | 'medium' | 'low';
+}
 
 interface TaskSummary {
   id: number;
@@ -66,13 +86,13 @@ interface Props {
 const ROW_STATUSES = ['draft', 'in_design', 'in_review', 'approved', 'scheduled', 'posted', 'cancelled'];
 
 const STATUS_COLORS: Record<string, string> = {
-  draft:      'bg-muted text-muted-foreground',
-  in_design:  'bg-blue-100 text-blue-700',
-  in_review:  'bg-yellow-100 text-yellow-700',
-  approved:   'bg-green-100 text-green-700',
-  scheduled:  'bg-purple-100 text-purple-700',
-  posted:     'bg-emerald-100 text-emerald-700',
-  cancelled:  'bg-red-100 text-red-700',
+  draft:      'bg-status-pearl text-status-pearl-foreground',
+  in_design:  'bg-status-sky-blue text-status-sky-blue-foreground',
+  in_review:  'bg-status-buttercup text-status-buttercup-foreground',
+  approved:   'bg-status-mint text-status-mint-foreground',
+  scheduled:  'bg-status-lavender text-status-lavender-foreground',
+  posted:     'bg-status-seafoam text-status-seafoam-foreground',
+  cancelled:  'bg-status-blush text-status-blush-foreground',
 };
 
 function TaskBadge({ tasks }: { tasks: TaskSummary[] }) {
@@ -257,8 +277,48 @@ export function ContentTable({
   const [bulkAssignee, setBulkAssignee] = useState('');
   const [bulkStatus, setBulkStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [sortField, setSortField] = useState<string>('posting_date');
+  const [sortOrder, setSortOrder] = useState<1 | -1>(1);
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
 
   const NONE = '__none__';
+
+  const contentTypes = useMemo(() => [...new Set(rows.map(r => r.content_type))].sort(), [rows]);
+
+  function toggleSort(field: string) {
+    if (sortField === field) setSortOrder(o => (o === 1 ? -1 : 1));
+    else { setSortField(field); setSortOrder(1); }
+  }
+
+  function setColFilter(field: string, val: string) {
+    setColFilters(prev => {
+      const next = { ...prev };
+      if (val) next[field] = val; else delete next[field];
+      return next;
+    });
+  }
+
+  const displayRows = useMemo(() => {
+    let result = [...rows];
+    Object.entries(colFilters).forEach(([field, val]) => {
+      if (val) result = result.filter(r => String(r[field as keyof ContentRow] ?? '') === val);
+    });
+    result.sort((a, b) => {
+      let aVal = '', bVal = '';
+      if (sortField === 'client_name')       { aVal = a.client_name ?? ''; bVal = b.client_name ?? ''; }
+      else if (sortField === 'platform')     { aVal = a.platform;          bVal = b.platform; }
+      else if (sortField === 'content_type') { aVal = a.content_type;      bVal = b.content_type; }
+      else if (sortField === 'posting_date') { aVal = a.posting_date;      bVal = b.posting_date; }
+      else if (sortField === 'status')       { aVal = a.status;            bVal = b.status; }
+      if (aVal < bVal) return -1 * sortOrder;
+      if (aVal > bVal) return sortOrder;
+      return 0;
+    });
+    return result;
+  }, [rows, sortField, sortOrder, colFilters]);
 
   function pushFilter(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -268,7 +328,8 @@ export function ContentTable({
   }
 
   function toggleAll() {
-    setSelected(selected.size === rows.length ? new Set() : new Set(rows.map(r => r.id)));
+    const allVisible = displayRows.every(r => selected.has(r.id));
+    setSelected(allVisible ? new Set() : new Set(displayRows.map(r => r.id)));
   }
 
   function toggleOne(id: number) {
@@ -294,9 +355,37 @@ export function ContentTable({
       toast.success(`Tasks created for ${json.created} content rows`);
       setSelected(new Set());
       router.refresh();
+
+      // Run AI schedule analysis on the newly created tasks
+      const taskIds = (json.rows as Array<{ design_task_id: number; post_task_id: number }> | null)
+        ?.flatMap(r => [r.design_task_id, r.post_task_id].filter(Boolean)) ?? [];
+
+      if (taskIds.length > 0) {
+        setAiChecking(true);
+        try {
+          const aiRes = await fetch('/api/tasks/ai-schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_ids: taskIds }),
+          });
+          const aiJson = await aiRes.json();
+          if (aiJson.all_clear) {
+            toast.success('All assignments look good', { description: 'No conflicts detected.' });
+          } else if (aiJson.suggestions?.length > 0) {
+            setAiSuggestions(aiJson.suggestions);
+            setAiOpen(true);
+          }
+        } catch {
+          // silently skip if AI is unavailable
+        } finally {
+          setAiChecking(false);
+        }
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleBulkAssign() {
@@ -379,7 +468,7 @@ export function ContentTable({
           </Select>
 
           {/* Client filter */}
-          <Select value={activeClient ?? NONE} onValueChange={(v) => pushFilter('client', v === NONE || !v ? null : v)}>
+          <Select value={activeClient ?? undefined} onValueChange={(v) => pushFilter('client', v === NONE || !v ? null : v)}>
             <SelectTrigger className="h-8 text-xs w-36">
               <SelectValue placeholder="All clients" />
             </SelectTrigger>
@@ -390,7 +479,7 @@ export function ContentTable({
           </Select>
 
           {/* Platform filter */}
-          <Select value={activePlatform ?? NONE} onValueChange={(v) => pushFilter('platform', v === NONE || !v ? null : v)}>
+          <Select value={activePlatform ?? undefined} onValueChange={(v) => pushFilter('platform', v === NONE || !v ? null : v)}>
             <SelectTrigger className="h-8 text-xs w-36">
               <SelectValue placeholder="All platforms" />
             </SelectTrigger>
@@ -402,7 +491,7 @@ export function ContentTable({
 
           {/* Team member filter */}
           <Select
-            value={activeAssignee ?? NONE}
+            value={activeAssignee ?? undefined}
             onValueChange={(v) => pushFilter('assignee', v === NONE || !v ? null : v)}
           >
             <SelectTrigger className="h-8 text-xs w-40">
@@ -418,6 +507,7 @@ export function ContentTable({
               ))}
             </SelectContent>
           </Select>
+
         </div>
 
         <Button size="sm" onClick={() => setImportOpen(true)}>
@@ -430,8 +520,8 @@ export function ContentTable({
         <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 flex-wrap">
           <span className="text-sm font-medium text-primary">{selected.size} selected</span>
           <div className="flex-1" />
-          <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading}>
-            Create Tasks
+          <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading || aiChecking}>
+            {aiChecking ? '✦ AI analysing…' : 'Create Tasks'}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)} disabled={loading}>
             Assign Designer
@@ -450,34 +540,89 @@ export function ContentTable({
       <div className="rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b">
+            <thead className="bg-card border-b border-border">
               <tr>
-                <th className="w-10 px-3 py-2">
+                <th className="w-10 px-3 py-2.5">
                   <input
                     type="checkbox"
-                    checked={rows.length > 0 && selected.size === rows.length}
+                    checked={displayRows.length > 0 && displayRows.every(r => selected.has(r.id))}
                     onChange={toggleAll}
                     className="rounded"
                   />
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Client</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Platform</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Posting Date</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Tasks</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Assigned To</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Source</th>
+                {(([
+                  ['client_name',   'Client',       clients],
+                  ['platform',      'Platform',     platforms],
+                  ['content_type',  'Type',         contentTypes],
+                  ['posting_date',  'Posting Date', null],
+                  ['status',        'Status',       ROW_STATUSES],
+                ]) as [string, string, string[] | null][]).map(([field, label, options]) => {
+                  const isActive = sortField === field;
+                  const hasFilter = !!colFilters[field];
+                  return (
+                    <th key={field}
+                      className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-0.5">
+                        {/* Sort trigger */}
+                        <button
+                          onClick={() => toggleSort(field)}
+                          className="flex items-center gap-1 hover:text-foreground transition-colors group"
+                        >
+                          {label}
+                          {isActive
+                            ? (sortOrder === 1
+                                ? <ArrowUp className="h-3 w-3 text-primary" />
+                                : <ArrowDown className="h-3 w-3 text-primary" />)
+                            : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                          }
+                        </button>
+                        {/* Column filter */}
+                        {options && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+                              title={`Filter by ${label}`}
+                            >
+                              <ListFilter className="h-3 w-3" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-44">
+                              <DropdownMenuItem
+                                onClick={() => setColFilter(field, '')}
+                                className={!colFilters[field] ? 'font-semibold' : ''}
+                              >
+                                All {label.toLowerCase()}s
+                              </DropdownMenuItem>
+                              {options.map(opt => (
+                                <DropdownMenuItem
+                                  key={opt}
+                                  onClick={() => setColFilter(field, opt)}
+                                  className={`capitalize ${colFilters[field] === opt ? 'font-semibold text-primary' : ''}`}
+                                >
+                                  {opt.replace('_', ' ')}
+                                  {colFilters[field] === opt && <span className="ml-auto text-xs">✓</span>}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
+                <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground">Tasks</th>
+                <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground">Assigned To</th>
+                <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground">Source</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.length === 0 ? (
+              {displayRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
                     No content rows found.
                   </td>
                 </tr>
-              ) : rows.map(row => (
+              ) : displayRows.map(row => (
                 <tr
                   key={row.id}
                   className={`hover:bg-muted/30 transition-colors ${selected.has(row.id) ? 'bg-primary/5' : ''}`}
@@ -520,6 +665,90 @@ export function ContentTable({
       </div>
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+
+      {/* AI Schedule Analysis dialog */}
+      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              ✦ AI Schedule Analysis
+              <span className="text-xs font-normal bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">
+                {aiSuggestions.length} conflict{aiSuggestions.length !== 1 ? 's' : ''} detected
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Review AI suggestions and adjust assignments as needed.
+          </p>
+          <div className="space-y-3 mt-1">
+            {aiSuggestions.map(s => (
+              <div
+                key={s.task_id}
+                className={`rounded-lg border p-4 space-y-2 ${
+                  s.urgency === 'high'
+                    ? 'border-destructive/50 bg-destructive/5'
+                    : s.urgency === 'medium'
+                    ? 'border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20'
+                    : 'border-border bg-muted/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium capitalize">
+                      {s.task_type} task · {s.client}
+                      <span className="text-muted-foreground font-normal ml-1">({s.platform})</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Assigned to: <span className="font-medium text-foreground">{s.assignee_name}</span>
+                      {' · '}Posting: {new Date(s.posting_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize ${
+                      s.urgency === 'high' ? 'bg-destructive/15 text-destructive' :
+                      s.urgency === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' :
+                      'bg-muted text-muted-foreground'
+                    }`}>
+                      {s.urgency}
+                    </span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
+                      {s.conflict_type.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                </div>
+
+                {s.conflict_type === 'leave_overlap' && (
+                  <p className="text-xs rounded px-2 py-1 bg-amber-100/60 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    On approved leave: {s.leave_start} → {s.leave_end}
+                  </p>
+                )}
+                {s.conflict_type === 'over_capacity' && (
+                  <p className="text-xs rounded px-2 py-1 bg-red-100/60 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                    Workload: {s.current_load} / {s.max_capacity} tasks (at capacity)
+                  </p>
+                )}
+                {s.conflict_type === 'tight_deadline' && (
+                  <p className="text-xs rounded px-2 py-1 bg-orange-100/60 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                    Deadline in {Math.round(s.hours_until_deadline ?? 0)}h — very tight
+                  </p>
+                )}
+
+                <div className="flex items-baseline gap-2 text-xs">
+                  <span className="text-primary font-semibold shrink-0">AI suggests:</span>
+                  <span className="font-medium capitalize">{s.suggestion.replace(/_/g, ' ')}</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{s.reasoning}</p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="mt-2">
+            <p className="text-xs text-muted-foreground flex-1">
+              Use the Assign column in the table to act on these suggestions.
+            </p>
+            <Button variant="outline" onClick={() => setAiOpen(false)}>Dismiss</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Assign designer dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>

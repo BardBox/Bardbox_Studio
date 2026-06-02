@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     hashtags,
     posting_date,
     posting_time,
+    priority,
   } = body;
 
   if (!platform || !content_type || !posting_date) {
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       hashtags: hashtags || null,
       posting_date,
       posting_time: posting_time || '10:00:00',
+      priority: ['low','medium','high'].includes(priority) ? priority : 'medium',
       source: 'in_app',
       created_by: user.id,
     })
