@@ -99,7 +99,8 @@ export async function POST(req: NextRequest) {
   // load lookup: `${assignee_id}|${task_type}|${posting_date}|${content_type}` → count
   const loadLookup: Record<string, number> = {};
   for (const t of activeTaskRows ?? []) {
-    const cr = t.content_rows as { posting_date: string; content_type: string } | null;
+    const crRaw = t.content_rows as unknown as { posting_date: string; content_type: string } | { posting_date: string; content_type: string }[] | null;
+    const cr = Array.isArray(crRaw) ? crRaw[0] ?? null : crRaw;
     if (!cr || !t.assignee_id) continue;
     const key = `${t.assignee_id}|${t.task_type}|${cr.posting_date}|${cr.content_type}`;
     loadLookup[key] = (loadLookup[key] ?? 0) + 1;
