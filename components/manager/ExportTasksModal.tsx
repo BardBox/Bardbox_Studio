@@ -115,7 +115,7 @@ export function ExportTasksModal({ open, onClose }: Props) {
           {/* Client filter */}
           <div className="space-y-1.5">
             <Label>Client</Label>
-            <Select value={selectedClient} onValueChange={v => setSelectedClient(v)}>
+            <Select value={selectedClient} onValueChange={v => setSelectedClient(v ?? '__all__')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="All clients" />
               </SelectTrigger>
