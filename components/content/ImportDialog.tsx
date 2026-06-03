@@ -35,7 +35,6 @@ const MAPPING_FIELDS = [
   { key: 'posting_date', label: 'Posting Date *', required: true },
   { key: 'content_type', label: 'Content Type', required: false },
   { key: 'brief', label: 'Task Name / Brief', required: false },
-  { key: 'designer', label: 'Employee', required: false },
   { key: 'caption', label: 'Caption / Copy', required: false },
   { key: 'hashtags', label: 'Hashtags', required: false },
   { key: 'posting_time', label: 'Deadline', required: false },
@@ -47,7 +46,6 @@ const TEMPLATE_COLUMN_MAP: Record<string, string> = {
   posting_date:  'Post Date',
   content_type:  'Type',
   brief:         'Task Name',
-  designer:      'Employee',
   caption:       'Caption',
   hashtags:      'Hashtags',
   posting_time:  'Deadline',
@@ -126,22 +124,6 @@ export function ImportDialog({ open, onClose }: Props) {
     return 0;
   }
 
-  async function downloadTemplate() {
-    try {
-      const res  = await fetch('/api/admin/export/template');
-      if (!res.ok) throw new Error('Failed to generate template');
-      const blob = await res.blob();
-      const now  = new Date();
-      const name = `bardbox_template_${now.toLocaleDateString('en-IN', { month: 'long' }).toLowerCase()}_${now.getFullYear()}.xlsx`;
-      const a    = document.createElement('a');
-      a.href     = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {
-      // fallback: silent fail — user can retry
-    }
-  }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -366,16 +348,16 @@ export function ImportDialog({ open, onClose }: Props) {
                 Upload a <strong>.csv</strong>, <strong>.xlsx</strong>, or <strong>.xls</strong> file.
                 Use the Bardbox template for instant import — no column mapping needed.
               </p>
-              <button
-                type="button"
-                onClick={downloadTemplate}
+              <a
+                href="/task_sheet_30days.csv"
+                download="task_sheet_30days.csv"
                 className="shrink-0 flex items-center gap-1.5 text-xs text-primary border border-primary/40 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors whitespace-nowrap"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download Template
-              </button>
+              </a>
             </div>
             <div
               className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer hover:border-primary transition-colors"
