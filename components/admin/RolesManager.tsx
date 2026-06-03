@@ -14,13 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Pencil, Trash2, Plus } from 'lucide-react';
+import { CreateRoleDialog } from './CreateRoleDialog';
 
 export interface Role {
   id: number;
   key: string;
   label: string;
   description: string | null;
-  default_task_cap: number;
   created_at: string;
   member_count: number;
   active_count: number;
@@ -30,7 +30,7 @@ interface RolesManagerProps {
   initialRoles: Role[];
 }
 
-const EMPTY_FORM = { key: '', label: '', description: '', default_task_cap: '10' };
+const EMPTY_FORM = { key: '', label: '', description: '' };
 
 export function RolesManager({ initialRoles }: RolesManagerProps) {
   const router = useRouter();
@@ -46,7 +46,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
   }
 
   function openCreate() {
-    setForm(EMPTY_FORM);
     setCreateOpen(true);
   }
 
@@ -55,7 +54,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
       key: role.key,
       label: role.label,
       description: role.description ?? '',
-      default_task_cap: String(role.default_task_cap),
     });
     setEditRole(role);
   }
@@ -70,7 +68,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
         key: form.key,
         label: form.label,
         description: form.description,
-        default_task_cap: Number(form.default_task_cap),
       }),
     });
     const json = await res.json();
@@ -94,7 +91,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
       body: JSON.stringify({
         label: form.label,
         description: form.description,
-        default_task_cap: Number(form.default_task_cap),
       }),
     });
     const json = await res.json();
@@ -136,6 +132,11 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
         </Button>
       </div>
 
+      <p className="text-xs text-muted-foreground mb-3">
+        Per-person content capacity (e.g. carousels/day) is managed on the{' '}
+        <a href="/admin/capacity" className="underline underline-offset-2 hover:text-foreground">Capacity page</a>.
+      </p>
+
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
@@ -143,7 +144,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
               <TableHead>Label</TableHead>
               <TableHead>Key</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Default Cap</TableHead>
               <TableHead className="text-right">Members</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -151,7 +151,7 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
           <TableBody>
             {roles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-10 text-sm">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-10 text-sm">
                   No roles yet. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -165,7 +165,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
                     {role.description ?? <span className="italic opacity-50">—</span>}
                   </TableCell>
-                  <TableCell className="text-right">{role.default_task_cap}</TableCell>
                   <TableCell className="text-right">
                     <span className="text-sm">
                       {role.active_count} active
@@ -204,55 +203,11 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
       </Card>
 
       {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => !open && setCreateOpen(false)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Role</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="flex flex-col gap-4">
-            <Field label="Key" hint="Unique identifier, e.g. designer">
-              <Input
-                required
-                value={form.key}
-                onChange={(e) => setField('key', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                placeholder="e.g. designer"
-              />
-            </Field>
-            <Field label="Label">
-              <Input
-                required
-                value={form.label}
-                onChange={(e) => setField('label', e.target.value)}
-                placeholder="e.g. Designer"
-              />
-            </Field>
-            <Field label="Description">
-              <Input
-                value={form.description}
-                onChange={(e) => setField('description', e.target.value)}
-                placeholder="What does this role do?"
-              />
-            </Field>
-            <Field label="Default Task Cap">
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={form.default_task_cap}
-                onChange={(e) => setField('default_task_cap', e.target.value)}
-              />
-            </Field>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={loading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Creating…' : 'Create Role'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateRoleDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(role) => setRoles((prev) => [...prev, { ...role, member_count: 0, active_count: 0 }])}
+      />
 
       {/* Edit Dialog */}
       <Dialog open={!!editRole} onOpenChange={(open) => !open && setEditRole(null)}>
@@ -275,15 +230,6 @@ export function RolesManager({ initialRoles }: RolesManagerProps) {
               <Input
                 value={form.description}
                 onChange={(e) => setField('description', e.target.value)}
-              />
-            </Field>
-            <Field label="Default Task Cap">
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={form.default_task_cap}
-                onChange={(e) => setField('default_task_cap', e.target.value)}
               />
             </Field>
             <DialogFooter>

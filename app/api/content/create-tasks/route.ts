@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
@@ -32,9 +32,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ids[] required' }, { status: 400 });
   }
 
+  // Create tasks via RPC (handles deadlines + auto-assign)
   const { data, error } = await supabaseAdmin.rpc('create_tasks_for_rows', { p_ids: ids });
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ created: (data as unknown[])?.length ?? 0, rows: data });
+  const created = (data as unknown[])?.length ?? 0;
+
+  // ── Apply preferred_assignee_id ───────────────────────────────
+  try {
+    const { data: rowData } = await supabaseAdmin
+      .from('content_rows')
+      .select('id, preferred_assignee_id')
+      .in('id', ids)
+      .not('preferred_assignee_id', 'is', null);
+
+    if (rowData && rowData.length > 0) {
+      const assigneeIds = [...new Set(rowData.map((r: { preferred_assignee_id: string }) => r.preferred_assignee_id))];
+
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role')
+        .in('id', assigneeIds);
+
+      const idToRole: Record<string, string> = {};
+      for (const p of profiles ?? []) idToRole[p.id] = p.role;
+
+      for (const row of rowData as { id: number; preferred_assignee_id: string }[]) {
+        const role = idToRole[row.preferred_assignee_id];
+        if (!role) continue;
+        const taskType = role === 'smo' ? 'post' : 'design';
+        await supabaseAdmin
+          .from('tasks')
+          .update({ assignee_id: row.preferred_assignee_id, manually_assigned: true })
+          .eq('content_row_id', row.id)
+          .eq('task_type', taskType);
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return NextResponse.json({ created, rows: data });
 }

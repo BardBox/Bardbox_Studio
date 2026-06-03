@@ -23,26 +23,27 @@ interface EditUserDialogProps {
 const BLANK_EXTRA = {
   employee_id: '', designation: '', date_of_joining: '',
   employment_type: '', date_of_birth: '', emergency_contact: '',
+  specialty: '',
 };
 
 export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUserDialogProps) {
   const [form, setForm] = useState({
-    full_name: '', role: '', max_concurrent_tasks: '10', daily_capacity: '3', ...BLANK_EXTRA,
+    full_name: '', role: '', daily_capacity: '3', ...BLANK_EXTRA,
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) setForm({
-      full_name:            user.full_name,
-      role:                 user.role,
-      max_concurrent_tasks: String(user.max_concurrent_tasks),
-      daily_capacity:       String(user.daily_capacity ?? 3),
+      full_name:       user.full_name,
+      role:            user.role,
+      daily_capacity:  String(user.daily_capacity ?? 3),
       employee_id:          user.employee_id       ?? '',
       designation:          user.designation       ?? '',
       date_of_joining:      user.date_of_joining   ?? '',
       employment_type:      user.employment_type   ?? '',
       date_of_birth:        user.date_of_birth     ?? '',
       emergency_contact:    user.emergency_contact ?? '',
+      specialty:            user.specialty         ?? '',
     });
   }, [user]);
 
@@ -59,8 +60,10 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        max_concurrent_tasks: Number(form.max_concurrent_tasks),
-        daily_capacity:       Number(form.daily_capacity),
+        daily_capacity: Number(form.daily_capacity),
+        date_of_joining:      form.date_of_joining || null,
+        date_of_birth:        form.date_of_birth   || null,
+        specialty:            form.specialty        || null,
       }),
     });
     const json = await res.json();
@@ -71,14 +74,14 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
       onUpdated({
         full_name:            form.full_name,
         role:                 form.role as TeamUser['role'],
-        max_concurrent_tasks: Number(form.max_concurrent_tasks),
-        daily_capacity:       Number(form.daily_capacity),
+        daily_capacity:  Number(form.daily_capacity),
         employee_id:          form.employee_id       || null,
         designation:          form.designation       || null,
         date_of_joining:      form.date_of_joining   || null,
         employment_type:      form.employment_type   || null,
         date_of_birth:        form.date_of_birth     || null,
         emergency_contact:    form.emergency_contact || null,
+        specialty:            (form.specialty || null) as TeamUser['specialty'],
       });
       onClose();
     }
@@ -136,14 +139,26 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
                   </SelectContent>
                 </Select>
               </Field>
+              {['designer'].includes(form.role) && (
+                <Field label="Design Specialty">
+                  <Select value={form.specialty || ''} onValueChange={(v) => set('specialty', v === '__both__' ? '' : (v ?? ''))}>
+                    <SelectTrigger><SelectValue placeholder="Both (generalist)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__both__">Both (generalist)</SelectItem>
+                      <SelectItem value="video_editor">🎬 Video Editor — reels, videos, youtube</SelectItem>
+                      <SelectItem value="graphic_designer">🎨 Graphic Designer — carousels, posts, static</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Controls which content types are auto-assigned to this person.
+                  </p>
+                </Field>
+              )}
               <Field label="Date of Joining">
                 <input type="date" value={form.date_of_joining} onChange={(e) => set('date_of_joining', e.target.value)}
                   className="input" />
               </Field>
-              <Field label="Max Concurrent Tasks">
-                <input type="number" min={1} max={50} value={form.max_concurrent_tasks}
-                  onChange={(e) => set('max_concurrent_tasks', e.target.value)} className="input" />
-              </Field>
+
               <Field label="Daily Capacity (tasks/day)">
                 <input type="number" min={1} max={20} value={form.daily_capacity}
                   onChange={(e) => set('daily_capacity', e.target.value)} className="input" />

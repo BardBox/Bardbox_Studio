@@ -29,31 +29,31 @@ interface Props {
 
 type Step = 'upload' | 'tabs' | 'context' | 'mapping' | 'confirm';
 
-const PLATFORMS = ['instagram', 'facebook', 'twitter', 'linkedin', 'youtube', 'tiktok', 'other'];
 const CONTENT_TYPES = ['post', 'reel', 'story', 'carousel', 'video', 'graphic', 'other'];
 
 const MAPPING_FIELDS = [
   { key: 'posting_date', label: 'Posting Date *', required: true },
   { key: 'content_type', label: 'Content Type', required: false },
-  { key: 'brief', label: 'Brief / Description', required: false },
+  { key: 'brief', label: 'Task Name / Brief', required: false },
+  { key: 'designer', label: 'Employee', required: false },
   { key: 'caption', label: 'Caption / Copy', required: false },
   { key: 'hashtags', label: 'Hashtags', required: false },
-  { key: 'posting_time', label: 'Posting Time', required: false },
+  { key: 'posting_time', label: 'Deadline', required: false },
   { key: 'priority', label: 'Priority', required: false },
 ];
 
 // Fixed column names matching the Bardbox SMO content calendar format.
-// Extra columns in the file (Mention Work, Status, Live link, etc.) are ignored automatically.
 const TEMPLATE_COLUMN_MAP: Record<string, string> = {
-  posting_date:  'Date',
-  content_type:  'Creative',
-  brief:         'Idea',
+  posting_date:  'Post Date',
+  content_type:  'Type',
+  brief:         'Task Name',
+  designer:      'Employee',
   caption:       'Caption',
   hashtags:      'Hashtags',
-  posting_time:  'Posting Time',
+  posting_time:  'Deadline',
   priority:      'Priority',
 };
-const TEMPLATE_REQUIRED = ['Date', 'Creative', 'Idea'] as const;
+const TEMPLATE_REQUIRED = ['Post Date', 'Type', 'Task Name'] as const;
 
 interface Client { id: string; name: string; is_active: boolean }
 
@@ -67,6 +67,9 @@ export function ImportDialog({ open, onClose }: Props) {
   // Tab selection
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [selectedTab, setSelectedTab] = useState<string>('');
+  // Multi-tab import: sheet name → client name mapping
+  const [importAllTabs, setImportAllTabs] = useState(false);
+  const [tabClientMap, setTabClientMap] = useState<Record<string, string>>({});
 
   // Production schedule auto-detection
   const [isProductionSchedule, setIsProductionSchedule] = useState(false);
@@ -76,7 +79,6 @@ export function ImportDialog({ open, onClose }: Props) {
   // Context
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 
   // Mapping
   const [headers, setHeaders] = useState<string[]>([]);
@@ -116,7 +118,7 @@ export function ImportDialog({ open, onClose }: Props) {
   // Skips title rows like "BIZCIVITAS (MAY - JUNE)" that appear above the real headers.
   function findHeaderRow(ws: XLSX.WorkSheet): number {
     const allRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' }) as unknown[][];
-    const KEYWORDS = new Set(['#', 'date', 'creative', 'idea', 'caption', 'status', 'type', 'brief', 'platform', 'mention', 'reference', 'sr', 'priority']);
+    const KEYWORDS = new Set(['#', 'date', 'post date', 'creative', 'idea', 'task name', 'caption', 'status', 'type', 'brief', 'platform', 'mention', 'reference', 'sr', 'priority']);
     for (let i = 0; i < Math.min(6, allRows.length); i++) {
       const hits = allRows[i].filter(c => KEYWORDS.has(String(c ?? '').trim().toLowerCase())).length;
       if (hits >= 3) return i;
@@ -124,21 +126,21 @@ export function ImportDialog({ open, onClose }: Props) {
     return 0;
   }
 
-  function downloadTemplate() {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['#', 'Date', 'Creative', 'Idea', 'Caption', 'Mention Work', 'Hashtags', 'Status', 'Posting Time', 'Priority'],
-      [1, '2026-06-01', 'Reel', 'Hook idea for this reel', 'Your caption goes here...', '', '#brand #social', 'Undone', '10:00', 'medium'],
-      [2, '2026-06-02', 'Carousel', 'Topic for the carousel slides', '', '', '', 'Undone', '', 'high'],
-      ['', '', 'Image', 'Quote post same day', '', '', '', 'Undone', '', 'low'],
-      [3, '2026-06-03', 'Reel', 'Another reel idea', 'Caption...', '', '', 'Undone', '', 'emergency'],
-    ]);
-    ws['!cols'] = [
-      { wch: 4 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 40 },
-      { wch: 14 }, { wch: 25 }, { wch: 10 }, { wch: 14 }, { wch: 12 },
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, 'June - 2026');
-    XLSX.writeFile(wb, 'bardbox_content_template.xlsx');
+  async function downloadTemplate() {
+    try {
+      const res  = await fetch('/api/admin/export/template');
+      if (!res.ok) throw new Error('Failed to generate template');
+      const blob = await res.blob();
+      const now  = new Date();
+      const name = `bardbox_template_${now.toLocaleDateString('en-IN', { month: 'long' }).toLowerCase()}_${now.getFullYear()}.xlsx`;
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      // fallback: silent fail — user can retry
+    }
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -236,14 +238,10 @@ export function ImportDialog({ open, onClose }: Props) {
   }
 
   function proceedToMapping() {
-    loadSheetData(selectedTab);
+    // For multi-tab import, sample the first sheet for header/mapping detection
+    const tabToSample = importAllTabs ? (sheetNames[0] ?? '') : selectedTab;
+    if (tabToSample) loadSheetData(tabToSample);
     setStep('mapping');
-  }
-
-  function togglePlatform(p: string) {
-    setSelectedPlatforms(prev =>
-      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
-    );
   }
 
   function setMap(field: string, col: string) {
@@ -254,12 +252,16 @@ export function ImportDialog({ open, onClose }: Props) {
     });
   }
 
-  const canProceedFromContext = isProductionSchedule
-    ? selectedPlatforms.length > 0
-    : !!(selectedClient && selectedPlatforms.length > 0);
-  const canImport = isProductionSchedule
-    ? selectedPlatforms.length > 0
-    : !!(mapping.posting_date && selectedClient && selectedPlatforms.length > 0);
+  const canProceedFromContext = importAllTabs
+    ? Object.values(tabClientMap).every(v => v.trim())
+    : isProductionSchedule
+      ? true
+      : !!(selectedClient);
+  const canImport = importAllTabs
+    ? Object.values(tabClientMap).every(v => v.trim()) && !!(mapping.posting_date || isProductionSchedule)
+    : isProductionSchedule
+      ? true
+      : !!(mapping.posting_date && selectedClient);
 
   // Row count for the selected tab
   const rowCount = preview.length > 0 ? preview.length : 0;
@@ -268,19 +270,47 @@ export function ImportDialog({ open, onClose }: Props) {
     if (!file || !canImport) return;
     setLoading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('mapping', JSON.stringify(mapping));
-      fd.append('client_name', selectedClient || '__from_file__');
-      fd.append('platforms', JSON.stringify(selectedPlatforms));
-      fd.append('tab_name', selectedTab);
-      fd.append('header_row', String(headerRow));
-      if (isProductionSchedule) fd.append('is_production_schedule', 'true');
-
-      const res = await fetch('/api/content/import', { method: 'POST', body: fd });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? 'Import failed');
-      toast.success(`Imported ${json.created} rows. Open the Content page to create tasks.`);
+      if (importAllTabs) {
+        // Import each sheet as a separate client
+        const sheets = Object.entries(tabClientMap);
+        let totalCreated = 0;
+        const failures: string[] = [];
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        for (const [tabName, clientName] of sheets) {
+          const isProd = detectProductionSchedule(wb, tabName);
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('mapping', JSON.stringify(mapping));
+          fd.append('client_name', clientName.trim());
+          fd.append('tab_name', tabName);
+          fd.append('header_row', String(headerRow));
+          if (isProd) fd.append('is_production_schedule', 'true');
+          const res = await fetch('/api/content/import', { method: 'POST', body: fd });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok) {
+            totalCreated += json.created ?? 0;
+          } else {
+            failures.push(`${clientName}: ${json.error ?? 'failed'}`);
+          }
+        }
+        if (failures.length > 0) {
+          toast.warning(`Imported ${totalCreated} rows. ${failures.length} sheet(s) had errors.`);
+        } else {
+          toast.success(`Imported ${totalCreated} rows across ${sheets.length} clients.`);
+        }
+      } else {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('mapping', JSON.stringify(mapping));
+        fd.append('client_name', selectedClient || '__from_file__');
+        fd.append('tab_name', selectedTab);
+        fd.append('header_row', String(headerRow));
+        if (isProductionSchedule) fd.append('is_production_schedule', 'true');
+        const res = await fetch('/api/content/import', { method: 'POST', body: fd });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error ?? 'Import failed');
+        toast.success(`Imported ${json.created} rows. Open the Content page to create tasks.`);
+      }
       router.refresh();
       resetAndClose();
     } catch (e: unknown) {
@@ -295,11 +325,12 @@ export function ImportDialog({ open, onClose }: Props) {
     setFile(null);
     setSheetNames([]);
     setSelectedTab('');
+    setImportAllTabs(false);
+    setTabClientMap({});
     setIsProductionSchedule(false);
     setIsTemplateFormat(false);
     setHeaderRow(0);
     setSelectedClient('');
-    setSelectedPlatforms([]);
     setHeaders([]);
     setPreview([]);
     setMapping({});
@@ -366,57 +397,126 @@ export function ImportDialog({ open, onClose }: Props) {
         {/* ── Step 1b: Tab picker (multi-sheet workbooks) ── */}
         {step === 'tabs' && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              <strong>{file?.name}</strong> has multiple sheets. Select which one to import.
-            </p>
-            <div className="grid gap-2">
-              {sheetNames.map(name => (
-                <label
-                  key={name}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedTab === name ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="tab"
-                    value={name}
-                    checked={selectedTab === name}
-                    onChange={() => setSelectedTab(name)}
-                    className="accent-primary"
-                  />
-                  <span className="text-sm font-medium">{name}</span>
-                </label>
-              ))}
+            {/* Mode toggle */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setImportAllTabs(false)}
+                className={`rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
+                  !importAllTabs ? 'border-primary bg-primary/5 font-medium' : 'border-border hover:border-muted-foreground text-muted-foreground'
+                }`}
+              >
+                <div className="font-medium mb-0.5">Single sheet</div>
+                <div className="text-xs text-muted-foreground">Pick one tab to import</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportAllTabs(true);
+                  const map: Record<string, string> = {};
+                  sheetNames.forEach(n => { map[n] = n; });
+                  setTabClientMap(map);
+                }}
+                className={`rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
+                  importAllTabs ? 'border-primary bg-primary/5 font-medium' : 'border-border hover:border-muted-foreground text-muted-foreground'
+                }`}
+              >
+                <div className="font-medium mb-0.5">All sheets — multi-client</div>
+                <div className="text-xs text-muted-foreground">Each tab = one client</div>
+              </button>
             </div>
+
+            {!importAllTabs ? (
+              <div className="grid gap-2">
+                <p className="text-xs text-muted-foreground">Select the sheet to import:</p>
+                {sheetNames.map(name => (
+                  <label
+                    key={name}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedTab === name ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="tab"
+                      value={name}
+                      checked={selectedTab === name}
+                      onChange={() => setSelectedTab(name)}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm font-medium">{name}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Each sheet will be imported as a separate client. Edit client names if needed:
+                </p>
+                <div className="grid gap-2">
+                  {sheetNames.map(name => (
+                    <div key={name} className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                      <span className="text-xs text-muted-foreground w-32 shrink-0 truncate" title={name}>
+                        Tab: <span className="font-mono">{name}</span>
+                      </span>
+                      <span className="text-muted-foreground/40 text-xs">→</span>
+                      <input
+                        type="text"
+                        value={tabClientMap[name] ?? name}
+                        onChange={e => setTabClientMap(prev => ({ ...prev, [name]: e.target.value }))}
+                        placeholder="Client name"
+                        className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Step 2: Context (client + platforms) ── */}
+        {/* ── Step 2: Context (client) ── */}
         {step === 'context' && (
           <div className="space-y-5">
-            {isProductionSchedule ? (
+            {importAllTabs ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-sm rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
+                  <span className="text-primary font-semibold shrink-0">✦</span>
+                  <p className="text-muted-foreground">
+                    <strong className="text-foreground">Multi-client import.</strong>{' '}
+                    {Object.keys(tabClientMap).length} sheets will be imported as separate clients.
+                  </p>
+                </div>
+                <div className="rounded-lg border divide-y text-sm">
+                  {Object.entries(tabClientMap).map(([tab, client]) => (
+                    <div key={tab} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-muted-foreground text-xs font-mono">{tab}</span>
+                      <span className="font-medium">{client}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : isProductionSchedule ? (
               <div className="flex items-start gap-2 text-sm rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
                 <span className="text-primary font-semibold shrink-0">✦</span>
                 <p className="text-muted-foreground">
                   <strong className="text-foreground">Production schedule detected.</strong>{' '}
-                  Clients and content types will be read directly from the file. Just pick the platform(s) to apply.
+                  Clients and content types will be read directly from the file.
                 </p>
               </div>
             ) : (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Set the client and platform(s) for <strong>{file?.name}</strong>
-                  {selectedTab ? ` › ${selectedTab}` : ''}. These apply to all rows.
+                  Set the client for <strong>{file?.name}</strong>
+                  {selectedTab ? ` › ${selectedTab}` : ''}.
                 </p>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Client *</Label>
-                  <Select value={selectedClient || NONE} onValueChange={v => setSelectedClient(!v || v === NONE ? '' : v)}>
+                  <Select value={selectedClient || ''} onValueChange={v => setSelectedClient(v || '')}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select client…" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NONE}>— select client —</SelectItem>
                       {clients.map(c => (
                         <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                       ))}
@@ -425,33 +525,6 @@ export function ImportDialog({ open, onClose }: Props) {
                 </div>
               </>
             )}
-
-            <div className="space-y-2">
-              <Label className="text-xs">Platform(s) * <span className="text-muted-foreground font-normal">— select all that apply</span></Label>
-              <div className="flex flex-wrap gap-2">
-                {PLATFORMS.map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => togglePlatform(p)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize ${
-                      selectedPlatforms.includes(p)
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              {selectedPlatforms.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedPlatforms.length > 1
-                    ? `Each row will be duplicated for: ${selectedPlatforms.join(', ')}`
-                    : `Platform: ${selectedPlatforms[0]}`}
-                </p>
-              )}
-            </div>
           </div>
         )}
 
@@ -470,7 +543,6 @@ export function ImportDialog({ open, onClose }: Props) {
                     ['Client', 'Read from "Client" column in each section'],
                     ['Content Type', 'Normalised from "Type" column (Reel, Carousel, Static, Video…)'],
                     ['Brief', '"Task" title used as the creative brief'],
-                    ['Platform', `Set by you: ${selectedPlatforms.join(', ') || '—'}`],
                   ].map(([field, source]) => (
                     <div key={field} className="flex gap-3 px-3 py-2">
                       <span className="w-28 shrink-0 text-xs font-medium text-muted-foreground">{field}</span>
@@ -611,25 +683,20 @@ export function ImportDialog({ open, onClose }: Props) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Client</span>
-                <span>{isProductionSchedule ? <span className="text-muted-foreground italic">from file</span> : selectedClient}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Platform(s)</span>
-                <div className="flex gap-1">
-                  {selectedPlatforms.map(p => (
-                    <Badge key={p} variant="secondary" className="capitalize text-xs">{p}</Badge>
-                  ))}
-                </div>
+                {importAllTabs ? (
+                  <span className="text-xs text-right">
+                    {Object.values(tabClientMap).join(', ')}
+                  </span>
+                ) : isProductionSchedule ? (
+                  <span className="text-muted-foreground italic">from file</span>
+                ) : (
+                  <span>{selectedClient}</span>
+                )}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Mapped columns</span>
                 <span>{Object.keys(mapping).length} / {MAPPING_FIELDS.length}</span>
               </div>
-              {selectedPlatforms.length > 1 && (
-                <p className="text-xs text-muted-foreground pt-1 border-t">
-                  Each row will create {selectedPlatforms.length} content items (one per platform).
-                </p>
-              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Tasks will <strong>not</strong> be created automatically. Go to the Content page after import to create tasks for selected rows.

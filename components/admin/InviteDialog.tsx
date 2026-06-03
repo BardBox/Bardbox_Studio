@@ -22,9 +22,10 @@ interface InviteDialogProps {
 }
 
 const BLANK = {
-  full_name: '', email: '', role: '', max_concurrent_tasks: '10',
+  full_name: '', email: '', role: '',
   employee_id: '', designation: '', date_of_joining: '',
   employment_type: '', date_of_birth: '', emergency_contact: '',
+  specialty: '',
 };
 
 export function InviteDialog({ open, onClose, onInvited, defaultRole, roles = [] }: InviteDialogProps) {
@@ -52,7 +53,7 @@ export function InviteDialog({ open, onClose, onInvited, defaultRole, roles = []
     const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, max_concurrent_tasks: Number(form.max_concurrent_tasks) }),
+      body: JSON.stringify(form),
     });
     const json = await res.json();
     if (!res.ok) {
@@ -160,11 +161,17 @@ export function InviteDialog({ open, onClose, onInvited, defaultRole, roles = []
                   <input type="date" value={form.date_of_joining} onChange={(e) => set('date_of_joining', e.target.value)}
                     className="input" />
                 </Field>
-                <Field label="Max Concurrent Tasks">
-                  <input type="number" min={1} max={50} value={form.max_concurrent_tasks}
-                    onChange={(e) => set('max_concurrent_tasks', e.target.value)}
-                    className="input" />
-                </Field>
+                {form.role === 'designer' && (
+                  <Field label="Design Specialty">
+                    <Select value={form.specialty} onValueChange={(v) => set('specialty', v === '__both__' ? '' : (v ?? ''))}>
+                      <SelectTrigger><SelectValue placeholder="Graphic Designer (default)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="graphic_designer">🎨 Graphic Designer — carousels, posts, static</SelectItem>
+                        <SelectItem value="video_editor">🎬 Video Editor — reels, videos, youtube</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
               </div>
             </section>
 

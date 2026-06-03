@@ -17,10 +17,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import type { PipelineTask, UserProfile, UserRole } from '@/lib/types';
-import { Clock, Calendar, AlertTriangle, ListChecks, Users, Zap } from 'lucide-react';
+import { Clock, Calendar, AlertTriangle, ListChecks, Users, Zap, Download, Shuffle } from 'lucide-react';
 import { cn, statusLabel } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { TaskDetailPanel } from '@/components/shared/TaskDetailPanel';
+import { ExportTasksModal } from '@/components/manager/ExportTasksModal';
 
 const STATUS_BADGE: Record<string, string> = {
   todo:          'bg-status-cloud text-foreground',
@@ -80,6 +81,14 @@ interface Props {
   userRole: UserRole;
 }
 
+interface CapacityEntry {
+  user_id: string;
+  full_name: string;
+  role: string;
+  daily_cap: number | null;
+  current_load: number;
+}
+
 const EMPTY_FILTERS: DataTableFilterMeta = {
   client_name:   { value: null, matchMode: FilterMatchMode.EQUALS },
   platform:      { value: null, matchMode: FilterMatchMode.EQUALS },
@@ -94,8 +103,17 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
   const [reassignTarget, setReassignTarget] = useState<PipelineTask | null>(null);
   const [newAssignee, setNewAssignee] = useState('');
   const [reassigning, setReassigning] = useState(false);
+  const [capacityLoad, setCapacityLoad] = useState<CapacityEntry[]>([]);
+  const [loadingCapacity, setLoadingCapacity] = useState(false);
   const [activeQuickFilters, setActiveQuickFilters] = useState<string[]>([]);
   const [filters, setFilters] = useState<DataTableFilterMeta>(EMPTY_FILTERS);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [redistributeOpen, setRedistributeOpen] = useState(false);
+  const [redistributing, setRedistributing] = useState(false);
+  const [redistributeMonth, setRedistributeMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const hasActiveColumnFilters = Object.values(filters).some(
     f => 'value' in f && f.value !== null
@@ -189,8 +207,17 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
     </span>
   );
 
-  const assigneeBody  = (t: PipelineTask) =>
-    t.assignee_name ?? <span className="text-muted-foreground/60 italic text-xs">unassigned</span>;
+  const assigneeBody  = (t: PipelineTask) => (
+    <div className="flex flex-col gap-0.5">
+      <span>{t.assignee_name ?? <span className="text-muted-foreground/60 italic text-xs">unassigned</span>}</span>
+      {t.assignee_specialty === 'video_editor' && (
+        <span className="text-[10px] text-purple-600 font-medium">🎬 Video Editor</span>
+      )}
+      {t.assignee_specialty === 'graphic_designer' && (
+        <span className="text-[10px] text-blue-600 font-medium">🎨 Graphic</span>
+      )}
+    </div>
+  );
 
   const statusBody    = (t: PipelineTask) => (
     <Badge className={cn('border-0 text-xs font-medium px-2.5 py-0.5', STATUS_BADGE[t.task_status] ?? 'bg-muted text-foreground')}>
@@ -211,9 +238,27 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
     </span>
   );
 
+  async function openReassign(t: PipelineTask) {
+    setReassignTarget(t);
+    setNewAssignee(t.assignee_id ?? '');
+    setCapacityLoad([]);
+    setLoadingCapacity(true);
+    try {
+      const params = new URLSearchParams({
+        date: t.posting_date,
+        content_type: t.content_type,
+        task_type: t.task_type,
+      });
+      const res = await fetch(`/api/tasks/capacity-load?${params}`);
+      if (res.ok) setCapacityLoad(await res.json());
+    } finally {
+      setLoadingCapacity(false);
+    }
+  }
+
   const actionsBody   = (t: PipelineTask) => (
     <Button size="sm" variant="ghost" className="h-7 text-xs"
-      onClick={(e) => { e.stopPropagation(); setReassignTarget(t); setNewAssignee(t.assignee_id ?? ''); }}>
+      onClick={(e) => { e.stopPropagation(); openReassign(t); }}>
       Reassign
     </Button>
   );
@@ -240,6 +285,26 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
       toast.error('Reassignment failed');
     }
     setReassigning(false);
+  }
+
+  async function handleRedistribute() {
+    setRedistributing(true);
+    try {
+      const res = await fetch('/api/tasks/redistribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: redistributeMonth }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed');
+      toast.success(`Re-assigned ${json.reassigned} of ${json.total} tasks`);
+      setRedistributeOpen(false);
+      router.refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Redistribution failed');
+    } finally {
+      setRedistributing(false);
+    }
   }
 
   return (
@@ -270,6 +335,23 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
           )}>
           Clear Filters
         </button>
+
+        <div className="ml-auto flex items-center gap-4">
+          <button
+            onClick={() => setRedistributeOpen(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            <Shuffle className="h-4 w-4" />
+            Redistribute
+          </button>
+          <button
+            onClick={() => setExportOpen(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </button>
+        </div>
       </div>
 
       {/* DataTable */}
@@ -311,6 +393,9 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
         onTaskUpdated={() => { setPanelTask(null); router.refresh(); }}
       />
 
+      {/* Export modal */}
+      <ExportTasksModal open={exportOpen} onClose={() => setExportOpen(false)} />
+
       {/* Reassign dialog */}
       <Dialog open={!!reassignTarget} onOpenChange={() => setReassignTarget(null)}>
         <DialogContent>
@@ -318,25 +403,111 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
             <DialogTitle>Reassign Task</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            {reassignTarget?.client_name} — {reassignTarget?.platform} {reassignTarget?.content_type}
+            {reassignTarget?.client_name} — <span className="capitalize">{reassignTarget?.content_type}</span> ({reassignTarget?.task_type})
+            &nbsp;·&nbsp;
+            {reassignTarget?.posting_date && new Date(reassignTarget.posting_date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
           </p>
-          <Select value={newAssignee || null} onValueChange={v => { if (v) setNewAssignee(v); }}>
-            <SelectTrigger><SelectValue placeholder="Select team member…" /></SelectTrigger>
+
+          {/* Capacity load cards */}
+          {loadingCapacity ? (
+            <p className="text-xs text-muted-foreground">Loading capacity…</p>
+          ) : capacityLoad.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {capacityLoad.map(entry => {
+                const cap = entry.daily_cap ?? 0;
+                const load = entry.current_load;
+                const isFull = cap > 0 && load >= cap;
+                const isNearFull = cap > 0 && load === cap - 1;
+                return (
+                  <button
+                    key={entry.user_id}
+                    type="button"
+                    onClick={() => setNewAssignee(entry.user_id)}
+                    className={cn(
+                      'flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors cursor-pointer',
+                      newAssignee === entry.user_id
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                        : 'border-border hover:border-muted-foreground/50',
+                    )}
+                  >
+                    <span className="font-medium truncate">{entry.full_name.split(' ')[0]}</span>
+                    {cap > 0 ? (
+                      <span className={cn(
+                        'ml-2 shrink-0 text-xs font-semibold tabular-nums',
+                        isFull ? 'text-red-600' : isNearFull ? 'text-orange-500' : 'text-green-600',
+                      )}>
+                        {load}/{cap}
+                        {isFull && ' Full'}
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-xs text-muted-foreground">no cap</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {/* Fallback dropdown for roles without capacity data */}
+          <Select value={newAssignee || undefined} onValueChange={v => { if (v) setNewAssignee(v); }}>
+            <SelectTrigger className="mt-1"><SelectValue placeholder="Or pick from all team members…" /></SelectTrigger>
             <SelectContent>
               {team.filter(m => {
                 const roleMap: Record<string, string> = { design: 'designer', post: 'smo' };
                 return reassignTarget
                   ? m.role === roleMap[reassignTarget.task_type] || ['manager', 'admin'].includes(m.role)
                   : true;
-              }).map(m => (
-                <SelectItem key={m.id} value={m.id}>{m.full_name} ({m.role})</SelectItem>
-              ))}
+              }).map(m => {
+                const entry = capacityLoad.find(e => e.user_id === m.id);
+                const capLabel = entry
+                  ? ` (${entry.current_load}/${entry.daily_cap ?? '∞'})`
+                  : '';
+                return (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.full_name}{capLabel}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setReassignTarget(null)}>Cancel</Button>
             <Button disabled={!newAssignee || reassigning} onClick={handleReassign}>
               {reassigning ? 'Reassigning…' : 'Confirm'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Redistribute dialog */}
+      <Dialog open={redistributeOpen} onOpenChange={v => { if (!v) setRedistributeOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Redistribute Tasks</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Re-runs auto-assign on all <strong>to-do</strong> tasks for the selected month.
+            New team members with capacity set will be included in the pool.
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Month</label>
+              <input
+                type="month"
+                value={redistributeMonth}
+                onChange={e => setRedistributeMonth(e.target.value)}
+                className="w-full border rounded-md px-3 py-1.5 text-sm bg-background"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1.5">
+            Only unstarted (to-do) tasks will be re-assigned. In-progress or submitted tasks are untouched.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRedistributeOpen(false)}>Cancel</Button>
+            <Button onClick={handleRedistribute} disabled={redistributing}>
+              {redistributing ? 'Redistributing…' : 'Re-assign Now'}
             </Button>
           </DialogFooter>
         </DialogContent>

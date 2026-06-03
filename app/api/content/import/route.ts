@@ -21,6 +21,17 @@ async function makeClient() {
   );
 }
 
+// Returns true for All Sundays, 1st Saturday, and 3rd Saturday
+function isWeeklyOffDay(isoDate: string): boolean {
+  const d = new Date(isoDate + 'T00:00:00');
+  const dow = d.getDay();
+  const day = d.getDate();
+  if (dow === 0) return true;
+  if (dow === 6 && day >= 1  && day <= 7)  return true;
+  if (dow === 6 && day >= 15 && day <= 21) return true;
+  return false;
+}
+
 function str(v: unknown): string {
   if (v === null || v === undefined) return '';
   if (v instanceof Date) return v.toISOString().slice(0, 10);
@@ -69,7 +80,7 @@ function normaliseType(raw: string): string {
 
 type InsertRow = {
   client_name: string | null;
-  platform: string;
+  platform: string | null;
   content_type: string;
   brief: string | null;
   caption: string | null;
@@ -77,6 +88,8 @@ type InsertRow = {
   posting_date: string;
   posting_time: string;
   priority: 'low' | 'medium' | 'high' | 'emergency';
+  preferred_assignee_name: string | null;
+  preferred_assignee_id: string | null;
   source: 'import';
   created_by: string;
   auto_create_tasks: false;
@@ -95,7 +108,6 @@ function normalisePriority(raw: string): 'low' | 'medium' | 'high' | 'emergency'
 function parseProductionSchedule(
   workbook: XLSX.WorkBook,
   sheetName: string,
-  platforms: string[],
   userId: string,
 ): InsertRow[] {
   const ws = workbook.Sheets[sheetName];
@@ -173,22 +185,22 @@ function parseProductionSchedule(
 
       const contentType = normaliseType(type);
 
-      for (const platform of platforms) {
-        inserts.push({
-          client_name:      client,
-          platform:         platform.toLowerCase(),
-          content_type:     contentType,
-          brief:            task,
-          caption:          null,
-          hashtags:         null,
-          posting_date:     postingDate,
-          posting_time:     '10:00:00',
-          priority:         'medium',
-          source:           'import',
-          created_by:       userId,
-          auto_create_tasks: false,
-        });
-      }
+      inserts.push({
+        client_name:              client,
+        platform:                 null,
+        content_type:             contentType,
+        brief:                    task,
+        caption:                  null,
+        hashtags:                 null,
+        posting_date:             postingDate,
+        posting_time:             '10:00:00',
+        priority:                 'medium',
+        preferred_assignee_name:  null,
+        preferred_assignee_id:    null,
+        source:                   'import',
+        created_by:               userId,
+        auto_create_tasks:        false,
+      });
     }
   }
 
@@ -203,6 +215,7 @@ interface ColumnMap {
   hashtags?: string;
   posting_time?: string;
   priority?: string;
+  designer?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -226,21 +239,12 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File | null;
   const mappingRaw = formData.get('mapping') as string | null;
   const clientName = formData.get('client_name') as string | null;
-  const platformsRaw = formData.get('platforms') as string | null;
   const tabName = formData.get('tab_name') as string | null;
   const headerRowRaw = formData.get('header_row') as string | null;
   const headerRowIdx = headerRowRaw ? (parseInt(headerRowRaw) || 0) : 0;
   const isProductionSchedule = formData.get('is_production_schedule') === 'true';
 
   if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-
-  let platforms: string[] = [];
-  if (platformsRaw) {
-    try { platforms = JSON.parse(platformsRaw); } catch { platforms = [platformsRaw]; }
-  }
-  if (!Array.isArray(platforms) || platforms.length === 0) {
-    return NextResponse.json({ error: 'platforms[] required' }, { status: 400 });
-  }
 
   // Parse file
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -254,7 +258,7 @@ export async function POST(req: NextRequest) {
 
   if (isProductionSchedule) {
     // Multi-section production schedule — auto-parse, clients come from file
-    inserts = parseProductionSchedule(workbook, sheetName, platforms, user.id);
+    inserts = parseProductionSchedule(workbook, sheetName, user.id);
     if (inserts.length === 0) {
       return NextResponse.json({ error: 'No valid rows found in production schedule. Check the file format.' }, { status: 400 });
     }
@@ -289,10 +293,21 @@ export async function POST(req: NextRequest) {
       hashtags: string | null;
       posting_time: string;
       priority: 'low' | 'medium' | 'high' | 'emergency';
+      preferred_assignee_name: string | null;
     };
     const parsedRows: FlatRow[] = [];
     const yearHint = new Date().getFullYear();
     let lastValidDate = '';
+
+    // Fetch public holidays once for exclusion check
+    const { data: dbHolidays } = await supabaseAdmin
+      .from('public_holidays')
+      .select('holiday_date');
+    const holidaySet = new Set((dbHolidays ?? []).map(h => h.holiday_date.slice(0, 10)));
+
+    function isExcludedPostingDay(isoDate: string): boolean {
+      return isWeeklyOffDay(isoDate) || holidaySet.has(isoDate);
+    }
 
     for (const row of rows) {
       const postingDateRaw = row[mapping.posting_date];
@@ -307,6 +322,17 @@ export async function POST(req: NextRequest) {
       if (!posting_date) continue;
       lastValidDate = posting_date;
 
+      // Skip excluded posting days (Sunday / 1st & 3rd Saturday)
+      if (isExcludedPostingDay(posting_date)) continue;
+
+      // Skip rows that have no actual content
+      const briefVal  = mapping.brief   ? str(row[mapping.brief])   : '';
+      const captionVal = mapping.caption ? str(row[mapping.caption]) : '';
+      const typeVal   = mapping.content_type ? str(row[mapping.content_type]) : '';
+      if (!briefVal && !captionVal && !typeVal) continue;
+
+      const designerRaw = mapping.designer ? str(row[mapping.designer]) || null : null;
+
       parsedRows.push({
         posting_date,
         content_type: normaliseType(mapping.content_type ? str(row[mapping.content_type]) : ''),
@@ -315,26 +341,39 @@ export async function POST(req: NextRequest) {
         hashtags: mapping.hashtags ? str(row[mapping.hashtags]) || null : null,
         posting_time: mapping.posting_time ? str(row[mapping.posting_time]) || '10:00:00' : '10:00:00',
         priority: mapping.priority ? normalisePriority(str(row[mapping.priority])) : 'medium',
+        preferred_assignee_name: designerRaw,
       });
     }
 
-    for (const platform of platforms) {
-      for (const r of parsedRows) {
-        inserts.push({
-          client_name: clientName.trim(),
-          platform: platform.toLowerCase(),
-          content_type: r.content_type,
-          brief: r.brief,
-          caption: r.caption,
-          hashtags: r.hashtags,
-          posting_date: r.posting_date,
-          posting_time: r.posting_time,
-          priority: r.priority,
-          source: 'import' as const,
-          created_by: user.id,
-          auto_create_tasks: false,
-        });
-      }
+    // Resolve employee names → profile IDs in one batch query
+    const allNames = [...new Set(parsedRows.map(r => r.preferred_assignee_name).filter(Boolean) as string[])];
+    const nameToId: Record<string, string> = {};
+    if (allNames.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name')
+        .in('full_name', allNames)
+        .eq('is_active', true);
+      for (const p of profiles ?? []) nameToId[p.full_name] = p.id;
+    }
+
+    for (const r of parsedRows) {
+      inserts.push({
+        client_name: clientName.trim(),
+        platform: null,
+        content_type: r.content_type,
+        brief: r.brief,
+        caption: r.caption,
+        hashtags: r.hashtags,
+        posting_date: r.posting_date,
+        posting_time: r.posting_time,
+        priority: r.priority,
+        preferred_assignee_name: r.preferred_assignee_name,
+        preferred_assignee_id: r.preferred_assignee_name ? (nameToId[r.preferred_assignee_name] ?? null) : null,
+        source: 'import' as const,
+        created_by: user.id,
+        auto_create_tasks: false,
+      });
     }
   }
 

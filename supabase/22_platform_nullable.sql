@@ -1,0 +1,3 @@
+ALTER TABLE public.content_rows
+  ALTER COLUMN platform DROP NOT NULL,
+  ALTER COLUMN platform SET DEFAULT NULL;

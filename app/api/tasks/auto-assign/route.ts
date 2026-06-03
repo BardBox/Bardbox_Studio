@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     .eq('id', task_id);
 
   const { data: assigneeId, error } = await supabaseAdmin
-    .rpc('auto_assign_task', { p_task_id: task_id });
+    .rpc('auto_assign_with_daily_cap', { p_task_id: task_id });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

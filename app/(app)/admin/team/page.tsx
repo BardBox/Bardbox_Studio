@@ -22,21 +22,31 @@ export default async function TeamPage() {
 
   const [{ data: { users: authUsers } }, { data: profiles }, { data: roles }] = await Promise.all([
     supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-    supabaseAdmin.from('profiles').select('*').order('role').order('full_name'),
+    supabaseAdmin.from('profiles').select('*, specialty').order('role').order('full_name'),
     supabaseAdmin.from('roles').select('key, label').order('label'),
   ]);
 
   const emailMap = Object.fromEntries((authUsers ?? []).map((u) => [u.id, u.email ?? '']));
 
+  // Map legacy role values that were removed from the check constraint
+  const LEGACY_ROLE_MAP: Record<string, TeamUser['role']> = { video_editor: 'designer' };
+
   const merged: TeamUser[] = (profiles ?? []).map((p) => ({
     id: p.id,
     full_name: p.full_name,
     email: emailMap[p.id] ?? p.email ?? '',
-    role: p.role,
+    role: (LEGACY_ROLE_MAP[p.role] ?? p.role) as TeamUser['role'],
     is_active: p.is_active,
     max_concurrent_tasks: p.max_concurrent_tasks,
     daily_capacity: p.daily_capacity ?? 3,
     created_at: p.created_at,
+    specialty: p.specialty ?? null,
+    employee_id: p.employee_id ?? null,
+    designation: p.designation ?? null,
+    date_of_joining: p.date_of_joining ?? null,
+    employment_type: p.employment_type ?? null,
+    date_of_birth: p.date_of_birth ?? null,
+    emergency_contact: p.emergency_contact ?? null,
   }));
 
   return <TeamTable initialUsers={merged} roles={(roles ?? []) as { key: string; label: string }[]} />;

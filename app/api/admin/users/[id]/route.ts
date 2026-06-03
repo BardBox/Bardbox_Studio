@@ -37,11 +37,16 @@ export async function PATCH(
     const allowed = [
         'full_name', 'role', 'max_concurrent_tasks', 'daily_capacity', 'is_active',
         'employee_id', 'designation', 'date_of_joining', 'employment_type',
-        'date_of_birth', 'emergency_contact',
+        'date_of_birth', 'emergency_contact', 'specialty',
       ];
+    const DATE_FIELDS = ['date_of_birth', 'date_of_joining'];
     const filtered = Object.fromEntries(
-      Object.entries(profileFields).filter(([k]) => allowed.includes(k))
+      Object.entries(profileFields)
+        .filter(([k]) => allowed.includes(k))
+        .map(([k, v]) => [k, DATE_FIELDS.includes(k) && v === '' ? null : v])
     );
+    // Migrate legacy role values that no longer exist in the check constraint
+    if (filtered.role === 'video_editor') filtered.role = 'designer';
     if (Object.keys(filtered).length > 0) {
       const { error } = await supabaseAdmin
         .from('profiles').update(filtered).eq('id', id);

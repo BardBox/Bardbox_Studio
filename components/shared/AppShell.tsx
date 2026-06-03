@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ListChecks, Inbox, FilePlus, CalendarDays,
   MonitorPlay, CheckCircle2, Building2, Users, Umbrella, Pencil,
-  Shield, Settings, ShieldCheck, LogOut, Menu, UserCircle,
+  Shield, Settings, ShieldCheck, AlertTriangle, Gauge, LogOut, Menu, UserCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
@@ -20,7 +20,7 @@ import { ThemeToggle } from './ThemeToggle';
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, ListChecks, Inbox, FilePlus, CalendarDays,
   MonitorPlay, CheckCircle2, Building2, Users, Umbrella, Pencil,
-  Shield, Settings, ShieldCheck,
+  Shield, Settings, ShieldCheck, AlertTriangle, Gauge,
 };
 
 interface AppShellProps {

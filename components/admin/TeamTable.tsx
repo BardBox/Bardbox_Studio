@@ -5,14 +5,13 @@ import { toast } from 'sonner';
 import { DataTable } from 'primereact/datatable';
 import type { DataTableFilterMeta } from 'primereact/datatable';
 import { Column } from 'primereact/column';
-import type { ColumnFilterElementTemplateOptions } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
-import { Dropdown } from 'primereact/dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InviteDialog } from './InviteDialog';
 import { EditUserDialog } from './EditUserDialog';
 import { ResetPasswordDialog } from './ResetPasswordDialog';
+import { CreateRoleDialog } from './CreateRoleDialog';
 
 export interface TeamUser {
   id: string;
@@ -29,6 +28,7 @@ export interface TeamUser {
   employment_type?: string | null;
   date_of_birth?: string | null;
   emergency_contact?: string | null;
+  specialty?: 'video_editor' | 'graphic_designer' | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -56,10 +56,12 @@ export interface RoleOption { key: string; label: string; }
 export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser[]; roles?: RoleOption[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [createRoleOpen, setCreateRoleOpen] = useState(false);
   const [editUser, setEditUser] = useState<TeamUser | null>(null);
   const [resetUser, setResetUser] = useState<TeamUser | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [filters, setFilters] = useState<DataTableFilterMeta>({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     role:   { value: null, matchMode: FilterMatchMode.EQUALS },
@@ -89,11 +91,13 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
     window.location.reload();
   }
 
-  const roleFilterTemplate = (options: ColumnFilterElementTemplateOptions) => (
-    <Dropdown value={options.value} options={ROLE_OPTIONS}
-      onChange={(e) => options.filterCallback(e.value, options.index)}
-      placeholder="Any role" showClear style={{ minWidth: '10rem' }} />
-  );
+  function handleRoleFilter(value: string) {
+    setRoleFilter(value);
+    setFilters(f => ({
+      ...f,
+      role: { value: value || null, matchMode: FilterMatchMode.EQUALS },
+    }));
+  }
 
   const nameBody = (user: TeamUser) => (
     <div className={!user.is_active ? 'opacity-50' : ''}>
@@ -114,7 +118,15 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
   );
 
   const roleBody = (user: TeamUser) => (
-    <Badge variant="secondary">{ROLE_LABELS[user.role] ?? user.role}</Badge>
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Badge variant="secondary">{ROLE_LABELS[user.role] ?? user.role}</Badge>
+      {user.specialty === 'video_editor' && (
+        <Badge variant="outline" className="text-[10px] border-purple-400 text-purple-600">🎬 Video</Badge>
+      )}
+      {user.specialty === 'graphic_designer' && (
+        <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600">🎨 Graphic</Badge>
+      )}
+    </div>
   );
 
   const taskCapBody = (user: TeamUser) => (
@@ -167,6 +179,17 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
           placeholder="Search name or email…"
           className="h-9 rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-52"
         />
+        <select
+          value={roleFilter}
+          onChange={(e) => handleRoleFilter(e.target.value)}
+          className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">All roles</option>
+          {ROLE_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <Button variant="outline" onClick={() => setCreateRoleOpen(true)}>+ Create Role</Button>
         <Button onClick={() => setInviteOpen(true)}>+ Invite Member</Button>
       </div>
     </div>
@@ -182,7 +205,6 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
           sortOrder={1}
           filters={filters}
           onFilter={(e) => setFilters(e.filters)}
-          filterDisplay="menu"
           globalFilterFields={['full_name', 'email']}
           size="small"
           header={tableHeader}
@@ -190,7 +212,7 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
         >
           <Column field="full_name" header="Name"     sortable body={nameBody}    style={{ minWidth: '150px' }} />
           <Column field="email"     header="Email"    sortable body={emailBody}   style={{ minWidth: '200px' }} />
-          <Column field="role"      header="Role"     sortable filter filterElement={roleFilterTemplate} filterMatchMode={FilterMatchMode.EQUALS} body={roleBody} style={{ minWidth: '110px' }} />
+          <Column field="role"      header="Role"     sortable body={roleBody} style={{ minWidth: '110px' }} />
           <Column field="max_concurrent_tasks" header="Task Cap"  sortable body={taskCapBody}  style={{ width: '90px', textAlign: 'right' }} />
           <Column field="daily_capacity"       header="Daily Cap" sortable body={dailyCapBody} style={{ width: '90px', textAlign: 'right' }} />
           <Column field="is_active" header="Status"  sortable body={statusBody}  style={{ minWidth: '80px' }} />
@@ -198,6 +220,11 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
         </DataTable>
       </div>
 
+      <CreateRoleDialog
+        open={createRoleOpen}
+        onClose={() => setCreateRoleOpen(false)}
+        onCreated={() => window.location.reload()}
+      />
       <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={handleInvited} roles={roles} />
       <EditUserDialog
         user={editUser}

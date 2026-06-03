@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { ContentCalendar } from '@/components/content/ContentCalendar';
 import { ContentTable } from '@/components/content/ContentTable';
 import type { PipelineTask } from '@/lib/types';
@@ -36,16 +37,19 @@ export default async function ContentPage({
     // If filtering by team member, get matching content_row_ids first
     let assigneeRowIds: number[] | null = null;
     if (assignee) {
-      const { data: taskRows } = await supabase
-        .from('tasks')
-        .select('content_row_id')
-        .eq('assignee_id', assignee);
-      assigneeRowIds = (taskRows ?? []).map((t: { content_row_id: number }) => t.content_row_id);
+      const [{ data: taskRows }, { data: preferredRows }] = await Promise.all([
+        supabase.from('tasks').select('content_row_id').eq('assignee_id', assignee),
+        supabase.from('content_rows').select('id').eq('preferred_assignee_id', assignee),
+      ]);
+      const ids = new Set<number>();
+      for (const t of taskRows ?? []) ids.add(t.content_row_id);
+      for (const r of preferredRows ?? []) ids.add(r.id);
+      assigneeRowIds = [...ids];
     }
 
     let rowQuery = supabase
       .from('content_rows')
-      .select('id, client_name, platform, content_type, posting_date, status, source, auto_create_tasks, created_at, tasks(id, task_type, status, assignee_id, internal_deadline)')
+      .select('id, client_name, platform, content_type, posting_date, status, source, auto_create_tasks, created_at, preferred_assignee_name, preferred_assignee_id, tasks(id, task_type, status, assignee_id, internal_deadline)')
       .gte('posting_date', firstDay)
       .lte('posting_date', lastDay)
       .order('posting_date', { ascending: true });
@@ -117,9 +121,10 @@ export default async function ContentPage({
   if (client) taskQuery = taskQuery.eq('client_name', client);
   if (assignee) taskQuery = taskQuery.eq('assignee_id', assignee);
 
-  const [tasks, clientsRes] = await Promise.all([
+  const [tasks, clientsRes, holidaysRes] = await Promise.all([
     taskQuery,
     supabase.from('content_rows').select('client_name').not('client_name', 'is', null).order('client_name'),
+    supabaseAdmin.from('public_holidays').select('holiday_date, name').order('holiday_date'),
   ]);
 
   const uniqueClients = [...new Set(
@@ -152,6 +157,7 @@ export default async function ContentPage({
         teamMembers={allTeamMembers}
         activeClient={client ?? null}
         activeAssignee={assignee ?? null}
+        holidays={(holidaysRes.data ?? []) as { holiday_date: string; name: string }[]}
       />
     </div>
   );

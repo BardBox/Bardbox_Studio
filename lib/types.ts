@@ -52,6 +52,7 @@ export interface PipelineTask {
   row_is_emergency: boolean;
   assignee_name: string | null;
   assignee_role: string | null;
+  assignee_specialty: 'video_editor' | 'graphic_designer' | null;
   hours_until_deadline: number;
   pressure_level: PressureLevel;
 }

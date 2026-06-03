@@ -25,6 +25,8 @@ import { TaskAiChat } from '@/components/shared/TaskAiChat';
 
 interface TeamMember { id: string; full_name: string; role: string }
 
+interface Holiday { holiday_date: string; name: string }
+
 interface Props {
   tasks: PipelineTask[];
   currentMonth: string; // "YYYY-MM"
@@ -32,6 +34,7 @@ interface Props {
   teamMembers: TeamMember[];
   activeClient: string | null;
   activeAssignee: string | null;
+  holidays?: Holiday[];
 }
 
 const PLATFORMS: Record<string, string> = {
@@ -43,7 +46,8 @@ const PLATFORMS: Record<string, string> = {
   tiktok: 'TK',
 };
 
-function platformAbbr(p: string) {
+function platformAbbr(p: string | null | undefined) {
+  if (!p) return '–';
   return PLATFORMS[p.toLowerCase()] ?? p.slice(0, 2).toUpperCase();
 }
 
@@ -59,6 +63,21 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 const ALL_TASK_STATUSES: TaskStatus[] = ['todo', 'working_on_it', 'submitted', 'approved', 'done', 'blocked'];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function getExcludedDays(year: number, month: number): Set<number> {
+  const excluded = new Set<number>();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let satCount = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    if (dow === 0) excluded.add(d);          // all Sundays
+    if (dow === 6) {
+      satCount++;
+      if (satCount === 1 || satCount === 3) excluded.add(d); // 1st & 3rd Saturday
+    }
+  }
+  return excluded;
+}
 
 function TaskDetailDialog({
   task,
@@ -190,7 +209,7 @@ function TaskDetailDialog({
   );
 }
 
-export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, teamMembers, activeClient, activeAssignee }: Props) {
+export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, teamMembers, activeClient, activeAssignee, holidays = [] }: Props) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState<string | null>(null);
@@ -237,6 +256,12 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
   const nowUtc = new Date();
   const istNow = new Date(nowUtc.getTime() + (5 * 60 + 30) * 60_000);
   const today = `${istNow.getUTCFullYear()}-${String(istNow.getUTCMonth() + 1).padStart(2, '0')}-${String(istNow.getUTCDate()).padStart(2, '0')}`;
+
+  const excludedDays = getExcludedDays(year, month);
+
+  // Build holiday map: "YYYY-MM-DD" → name
+  const holidayMap = new Map<string, string>();
+  for (const h of holidays) holidayMap.set(h.holiday_date.slice(0, 10), h.name);
 
   const tasksByDate = new Map<string, PipelineTask[]>();
   for (const task of tasks) {
@@ -326,46 +351,61 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             const dayTasks = tasksByDate.get(dateStr) ?? [];
             const isToday = dateStr === today;
             const isPast = dateStr < today;
+            const holidayName = holidayMap.get(dateStr) ?? null;
+            const isExcluded = excludedDays.has(day) || !!holidayName;
 
             return (
               <div
                 key={dateStr}
                 className={`min-h-[110px] p-1.5 flex flex-col gap-1 relative group ${
-                  isToday ? 'bg-primary/5' : isPast ? 'bg-muted/20' : ''
+                  isExcluded
+                    ? 'bg-slate-100/80 dark:bg-slate-800/40'
+                    : isToday ? 'bg-primary/5' : isPast ? 'bg-muted/20' : ''
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span
                     className={`text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full ${
-                      isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+                      isExcluded
+                        ? 'text-slate-400'
+                        : isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
                     }`}
                   >
                     {day}
                   </span>
-                  <button
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground text-base leading-none transition-opacity"
-                    onClick={() => { setCreateDate(dateStr); setCreateOpen(true); }}
-                    title="Add content"
-                  >
-                    +
-                  </button>
+                  {isExcluded ? (
+                    <span className="text-[9px] text-slate-400 font-medium truncate max-w-[70px]" title={holidayName ?? 'Off'}>
+                      {holidayName ?? 'Off'}
+                    </span>
+                  ) : (
+                    <button
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground text-base leading-none transition-opacity"
+                      onClick={() => { setCreateDate(dateStr); setCreateOpen(true); }}
+                      title="Add content"
+                    >
+                      +
+                    </button>
+                  )}
                 </div>
 
                 {/* Task chips — clickable */}
-                {dayTasks.slice(0, 3).map((t) => (
+                {dayTasks.slice(0, 4).map((t) => (
                   <button
                     key={t.task_id}
                     onClick={() => setSelectedTask(t)}
                     className={`text-xs rounded px-1.5 py-0.5 truncate text-left w-full cursor-pointer hover:opacity-80 transition-opacity ${TASK_STATUS_COLORS[t.task_status] ?? 'bg-gray-100 text-gray-700'}`}
-                    title={`${t.client_name ?? ''} · ${t.platform} · ${t.content_type} · ${t.task_status} — click to update`}
+                    title={`${t.task_type === 'design' ? 'Design' : 'Post'} · ${t.content_type} · ${t.assignee_name ?? 'Unassigned'} · ${t.task_status}`}
                   >
-                    <span className="font-medium mr-0.5">{platformAbbr(t.platform)}</span>
-                    {t.client_name ?? t.content_type}
+                    <span className="font-medium capitalize">{t.content_type}</span>
+                    <span className="mx-0.5 opacity-40">·</span>
+                    <span className={t.task_type === 'design' ? 'text-blue-600' : 'text-violet-600'}>
+                      {t.assignee_name?.split(' ')[0] ?? '—'}
+                    </span>
                   </button>
                 ))}
-                {dayTasks.length > 3 && (
+                {dayTasks.length > 4 && (
                   <div className="text-xs text-muted-foreground px-1">
-                    +{dayTasks.length - 3} more
+                    +{dayTasks.length - 4} more
                   </div>
                 )}
 
@@ -379,11 +419,14 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground items-center">
         {Object.entries(TASK_STATUS_COLORS).map(([s, cls]) => (
           <span key={s} className={`px-2 py-0.5 rounded capitalize ${cls}`}>{s.replace('_', ' ')}</span>
         ))}
-        <span className="text-xs text-muted-foreground italic">· Click any task chip to update status</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-blue-600 font-medium">Blue name = Designer</span>
+        <span className="text-violet-600 font-medium">Violet name = SMO</span>
+        <span className="text-muted-foreground italic">· Click chip to update status</span>
       </div>
 
       <TaskDetailDialog

@@ -179,6 +179,12 @@ export function TaskDetailPanel({ task, userRole, onClose, onTaskUpdated }: Prop
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Assignee</p>
                     <p className="font-medium text-sm">{task.assignee_name}</p>
+                    {task.assignee_specialty === 'video_editor' && (
+                      <p className="text-[10px] text-purple-600 font-medium mt-0.5">🎬 Video Editor</p>
+                    )}
+                    {task.assignee_specialty === 'graphic_designer' && (
+                      <p className="text-[10px] text-blue-600 font-medium mt-0.5">🎨 Graphic Designer</p>
+                    )}
                   </div>
                 )}
                 <div>

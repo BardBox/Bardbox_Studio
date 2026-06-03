@@ -49,9 +49,11 @@ const NAV_MASTER: NavEntry[] = [
   {
     group: 'Settings',
     items: [
-      { href: '/admin/roles',       label: 'Roles',        iconName: 'Shield' },
-      { href: '/admin/settings',    label: 'App Settings', iconName: 'Settings' },
-      { href: '/admin/permissions', label: 'Permissions',  iconName: 'ShieldCheck' },
+      { href: '/admin/capacity',    label: 'Task Capacity',    iconName: 'Gauge' },
+      { href: '/admin/holidays',    label: 'Public Holidays',  iconName: 'CalendarOff' },
+      { href: '/admin/roles',       label: 'Roles',            iconName: 'Shield' },
+      { href: '/admin/settings',    label: 'App Settings',     iconName: 'Settings' },
+      { href: '/admin/permissions', label: 'Permissions',      iconName: 'ShieldCheck' },
     ],
   },
 ];
@@ -59,7 +61,7 @@ const NAV_MASTER: NavEntry[] = [
 /** Default routes per role — used as fallback when DB returns nothing. */
 export const ROLE_DEFAULT_ROUTES: Record<string, string[]> = {
   manager:   ['/manager', '/manager/tasks', '/manager/requests', '/manager/clients', '/request-task', '/content', '/admin/team', '/hr', '/manager/leave-conflicts'],
-  admin:     ['/manager', '/manager/tasks', '/manager/requests', '/manager/clients', '/request-task', '/content', '/smo', '/designer', '/admin/team', '/hr', '/manager/leave-conflicts', '/admin/roles', '/admin/settings', '/admin/permissions'],
+  admin:     ['/manager', '/manager/tasks', '/manager/requests', '/manager/clients', '/request-task', '/content', '/smo', '/designer', '/admin/team', '/hr', '/manager/leave-conflicts', '/admin/capacity', '/admin/holidays', '/admin/roles', '/admin/settings', '/admin/permissions'],
   ceo:       ['/ceo', '/ceo/approvals', '/content', '/admin/team'],
   smo:       ['/smo', '/content', '/request-task'],
   designer:  ['/designer', '/content', '/request-task'],
