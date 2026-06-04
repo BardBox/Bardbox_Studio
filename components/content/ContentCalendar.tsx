@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { PipelineTask, TaskStatus } from '@/lib/types';
 import { PressureBadge } from '@/components/shared/PressureBadge';
@@ -35,6 +36,7 @@ interface Props {
   activeClient: string | null;
   activeAssignee: string | null;
   holidays?: Holiday[];
+  view?: 'calendar' | 'employees';
 }
 
 const PLATFORMS: Record<string, string> = {
@@ -61,6 +63,14 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 };
 
 const ALL_TASK_STATUSES: TaskStatus[] = ['todo', 'working_on_it', 'submitted', 'approved', 'done', 'blocked'];
+
+const PRESSURE_ACCENT: Record<string, string> = {
+  overdue:     'bg-red-500',
+  critical:    'bg-orange-500',
+  approaching: 'bg-yellow-400',
+  comfortable: 'bg-emerald-500',
+  completed:   'bg-gray-300',
+};
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -102,7 +112,7 @@ function TaskDetailDialog({
     });
     setLoading(false);
     if (res.ok) {
-      toast.success(`Status → ${newStatus.replace('_', ' ')}`);
+      toast.success(`Status → ${newStatus.replace(/_/g, ' ')}`);
       onStatusChanged(task!.task_id, newStatus);
     } else {
       const json = await res.json().catch(() => ({}));
@@ -111,50 +121,97 @@ function TaskDetailDialog({
   }
 
   const cls = TASK_STATUS_COLORS[task.task_status] ?? 'bg-muted text-muted-foreground';
+  const accentColor = PRESSURE_ACCENT[task.pressure_level] ?? 'bg-gray-300';
+
+  const fmtDate = (d: string, isTimestamp = false) =>
+    new Date(isTimestamp ? d : d + 'T00:00:00').toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
 
   return (
     <Dialog open={!!task} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span>{task.client_name ?? '—'}</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              {task.task_type === 'design' ? '· Design Task' : '· Post Task'}
-            </span>
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden gap-0">
+        {/* Pressure colour stripe at top */}
+        <div className={`h-1 w-full shrink-0 ${accentColor}`} />
 
-        <div className="space-y-3 text-sm">
-          {/* Meta */}
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground">Platform</p>
-              <p className="font-medium capitalize">{task.platform}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Content Type</p>
-              <p className="font-medium capitalize">{task.content_type}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Posting Date</p>
-              <p className="font-medium">
+        <div className="px-6 pt-5 pb-6 space-y-4">
+          {/* Header */}
+          <DialogHeader className="space-y-1.5 pr-6">
+            {/* Date badge — prominent, first thing read */}
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold tracking-wide">
                 {new Date(task.posting_date + 'T00:00:00').toLocaleDateString('en-IN', {
-                  day: 'numeric', month: 'short', year: 'numeric',
+                  weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
                 })}
-                {task.posting_time && <span className="ml-1 text-muted-foreground">{task.posting_time.slice(0, 5)}</span>}
+                {task.posting_time && (
+                  <span className="text-muted-foreground font-normal ml-0.5">{task.posting_time.slice(0, 5)}</span>
+                )}
+              </span>
+            </div>
+
+            <DialogTitle className="flex items-center gap-2 flex-wrap text-base leading-snug">
+              <span>{task.client_name ?? '—'}</span>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                task.task_type === 'design'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                  : 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+              }`}>
+                {task.task_type === 'design' ? '✎ Design' : '↗ Post'}
+              </span>
+              {(task.pressure_level === 'overdue' || task.pressure_level === 'critical') && (
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
+                  task.pressure_level === 'overdue'
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                    : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                }`}>
+                  {task.pressure_level}
+                </span>
+              )}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground capitalize">
+              {task.content_type}{task.platform ? ` · ${task.platform}` : ''}
+            </p>
+          </DialogHeader>
+
+          {/* Meta card */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-muted/40 px-4 py-3">
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Submit by</p>
+              <p className="text-sm font-medium">{fmtDate(task.internal_deadline, true)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Posts on</p>
+              <p className="text-sm font-medium">
+                {fmtDate(task.posting_date)}
+                {task.posting_time && (
+                  <span className="ml-1 text-xs text-muted-foreground">{task.posting_time.slice(0, 5)}</span>
+                )}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Assigned To</p>
-              <p className="font-medium">{task.assignee_name ?? 'Unassigned'}</p>
+            <div className="col-span-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Assigned to</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium">{task.assignee_name ?? 'Unassigned'}</span>
+                {task.assignee_role && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ${
+                    task.assignee_role === 'designer'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                      : task.assignee_role === 'smo'
+                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {task.assignee_role}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Brief */}
           {task.brief && (
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Brief</p>
-              <p className="text-sm text-foreground/80 line-clamp-3">{task.brief}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Brief</p>
+              <p className="text-sm text-foreground/80 leading-relaxed line-clamp-4">{task.brief}</p>
             </div>
           )}
 
@@ -164,7 +221,7 @@ function TaskDetailDialog({
               href={task.design_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
             >
               Open Design ↗
             </a>
@@ -172,44 +229,43 @@ function TaskDetailDialog({
 
           {/* Rejection notes */}
           {task.rejection_notes && (
-            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2">
-              <p className="text-xs font-medium text-red-700 mb-0.5">Rejection note</p>
-              <p className="text-xs text-red-600">{task.rejection_notes}</p>
+            <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2.5 dark:bg-red-950/30 dark:border-red-900">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-0.5">Rejection note</p>
+              <p className="text-xs text-red-600 dark:text-red-400">{task.rejection_notes}</p>
             </div>
           )}
 
-          {/* Current status + change */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5">Status</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${cls}`}>
-                {task.task_status.replace('_', ' ')}
+          {/* Status */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</p>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${cls}`}>
+                {task.task_status.replace(/_/g, ' ')}
               </span>
-              <span className="text-xs text-muted-foreground">→ change to:</span>
-              <div className="flex flex-wrap gap-1.5">
-                {ALL_TASK_STATUSES.filter(s => s !== task.task_status).map(s => (
-                  <button
-                    key={s}
-                    disabled={loading}
-                    onClick={() => changeStatus(s)}
-                    className={`text-xs px-2 py-1 rounded-full font-medium border border-transparent hover:border-current cursor-pointer transition-opacity disabled:opacity-50 ${TASK_STATUS_COLORS[s]}`}
-                  >
-                    {s.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_TASK_STATUSES.filter(s => s !== task.task_status).map(s => (
+                <button
+                  key={s}
+                  disabled={loading}
+                  onClick={() => changeStatus(s)}
+                  className={`text-xs px-2.5 py-1 rounded-full font-medium border border-transparent hover:border-current cursor-pointer transition-opacity disabled:opacity-50 ${TASK_STATUS_COLORS[s]}`}
+                >
+                  {s.replace(/_/g, ' ')}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* AI assistant */}
-        <TaskAiChat task_id={task.task_id} task_type={task.task_type} />
+          {/* AI assistant */}
+          <TaskAiChat task_id={task.task_id} task_type={task.task_type} />
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, teamMembers, activeClient, activeAssignee, holidays = [] }: Props) {
+export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, teamMembers, activeClient, activeAssignee, holidays = [], view = 'calendar' }: Props) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState<string | null>(null);
@@ -223,7 +279,7 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
     const d = new Date(year, month - 1 + offset, 1);
     const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const params = new URLSearchParams();
-    params.set('view', 'calendar');
+    params.set('view', view);
     params.set('month', ym);
     if (activeClient) params.set('client', activeClient);
     if (activeAssignee) params.set('assignee', activeAssignee);
@@ -232,7 +288,7 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
 
   function pushFilter(key: string, value: string | null) {
     const params = new URLSearchParams();
-    params.set('view', 'calendar');
+    params.set('view', view);
     params.set('month', currentMonth);
     if (activeClient && key !== 'client') params.set('client', activeClient);
     if (activeAssignee && key !== 'assignee') params.set('assignee', activeAssignee);
@@ -265,7 +321,11 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
 
   const tasksByDate = new Map<string, PipelineTask[]>();
   for (const task of tasks) {
-    const key = task.posting_date.slice(0, 10);
+    // Employees view: group by internal_deadline (when work is due)
+    // Calendar view: group by posting_date (when it publishes)
+    const key = view === 'employees' && task.internal_deadline
+      ? task.internal_deadline.slice(0, 10)
+      : task.posting_date.slice(0, 10);
     if (!tasksByDate.has(key)) tasksByDate.set(key, []);
     tasksByDate.get(key)!.push(task);
   }
@@ -301,7 +361,9 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
           {/* Client filter */}
           <Select value={activeClient ?? '__all__'} onValueChange={v => pushFilter('client', v === '__all__' ? null : v)}>
             <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="All clients" />
+              <span className={cn('flex-1 text-left truncate text-xs', !activeClient && 'text-muted-foreground')}>
+                {activeClient ?? 'All clients'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All clients</SelectItem>
@@ -311,14 +373,30 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
 
           {/* Team member filter */}
           <Select value={activeAssignee ?? '__all__'} onValueChange={v => pushFilter('assignee', v === '__all__' ? null : v)}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="All team" />
+            <SelectTrigger className="h-8 text-xs w-52">
+              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-muted-foreground')}>
+                {activeAssignee ?? (view === 'employees' ? 'All employees' : 'All team')}
+              </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">All team</SelectItem>
+              <SelectItem value="__all__">{view === 'employees' ? 'All employees' : 'All team'}</SelectItem>
               {teamMembers.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.full_name} <span className="text-muted-foreground capitalize">({m.role})</span>
+                <SelectItem key={m.id} value={m.full_name}>
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase">
+                      {m.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                    </span>
+                    <span className="font-medium">{m.full_name}</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      m.role === 'designer'
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                        : m.role === 'smo'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                        : 'bg-muted text-muted-foreground'
+                    } capitalize`}>
+                      {m.role}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -354,6 +432,16 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             const holidayName = holidayMap.get(dateStr) ?? null;
             const isExcluded = excludedDays.has(day) || !!holidayName;
 
+            // Pair design + post tasks for the same content row into one card
+            const contentGroups = new Map<number, { design?: PipelineTask; post?: PipelineTask }>();
+            for (const t of dayTasks) {
+              if (!contentGroups.has(t.content_row_id)) contentGroups.set(t.content_row_id, {});
+              const g = contentGroups.get(t.content_row_id)!;
+              if (t.task_type === 'design') g.design = t;
+              else g.post = t;
+            }
+            const groupEntries = [...contentGroups.entries()];
+
             return (
               <div
                 key={dateStr}
@@ -388,24 +476,41 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
                   )}
                 </div>
 
-                {/* Task chips — clickable */}
-                {dayTasks.slice(0, 4).map((t) => (
-                  <button
-                    key={t.task_id}
-                    onClick={() => setSelectedTask(t)}
-                    className={`text-xs rounded px-1.5 py-0.5 truncate text-left w-full cursor-pointer hover:opacity-80 transition-opacity ${TASK_STATUS_COLORS[t.task_status] ?? 'bg-gray-100 text-gray-700'}`}
-                    title={`${t.task_type === 'design' ? 'Design' : 'Post'} · ${t.content_type} · ${t.assignee_name ?? 'Unassigned'} · ${t.task_status}`}
-                  >
-                    <span className="font-medium capitalize">{t.content_type}</span>
-                    <span className="mx-0.5 opacity-40">·</span>
-                    <span className={t.task_type === 'design' ? 'text-blue-600' : 'text-violet-600'}>
-                      {t.assignee_name?.split(' ')[0] ?? '—'}
-                    </span>
-                  </button>
-                ))}
-                {dayTasks.length > 4 && (
+                {/* Content cards — one per content row, showing designer + SMO */}
+                {groupEntries.slice(0, 3).map(([rowId, g]) => {
+                  const primary = g.design ?? g.post!;
+                  const cardStatus = g.design?.task_status ?? g.post?.task_status ?? 'todo';
+                  const cls = TASK_STATUS_COLORS[cardStatus] ?? 'bg-gray-100 text-gray-700';
+                  return (
+                    <button
+                      key={rowId}
+                      onClick={() => setSelectedTask(primary)}
+                      className={`text-xs rounded px-2 py-1.5 text-left w-full cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
+                      title={`${primary.content_type} · ${primary.client_name} | Design: ${g.design?.assignee_name ?? '—'} · Post: ${g.post?.assignee_name ?? '—'}`}
+                    >
+                      <div className="font-semibold capitalize leading-tight truncate">
+                        {primary.content_type}
+                        <span className="ml-1 font-normal opacity-50 text-[10px] normal-case">{primary.client_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] leading-tight">
+                        {g.design && (
+                          <span className="text-blue-600 truncate">
+                            {g.design.assignee_name?.split(' ')[0] ?? '—'}
+                          </span>
+                        )}
+                        {g.design && g.post && <span className="opacity-30 shrink-0">·</span>}
+                        {g.post && (
+                          <span className="text-violet-600 truncate">
+                            {g.post.assignee_name?.split(' ')[0] ?? '—'}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+                {groupEntries.length > 3 && (
                   <div className="text-xs text-muted-foreground px-1">
-                    +{dayTasks.length - 4} more
+                    +{groupEntries.length - 3} more
                   </div>
                 )}
 

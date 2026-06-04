@@ -1,7 +1,10 @@
 import type { PipelineTask, PressureLevel } from '@/lib/types';
 import { TaskCard } from '@/components/shared/TaskCard';
 
-const HEADER_STYLES: Record<PressureLevel, string> = {
+type ColumnType = PressureLevel | 'in_review';
+
+const HEADER_STYLES: Record<ColumnType, string> = {
+  in_review:   'border-yellow-400 bg-yellow-50',
   overdue:     'border-red-300 bg-red-50',
   critical:    'border-orange-300 bg-orange-50',
   approaching: 'border-yellow-300 bg-yellow-50',
@@ -9,7 +12,8 @@ const HEADER_STYLES: Record<PressureLevel, string> = {
   completed:   'border-gray-200 bg-gray-50',
 };
 
-const HEADER_TEXT: Record<PressureLevel, string> = {
+const HEADER_TEXT: Record<ColumnType, string> = {
+  in_review:   'text-yellow-800',
   overdue:     'text-red-700',
   critical:    'text-orange-700',
   approaching: 'text-yellow-700',
@@ -17,7 +21,8 @@ const HEADER_TEXT: Record<PressureLevel, string> = {
   completed:   'text-gray-500',
 };
 
-const COLUMN_LABELS: Record<PressureLevel, string> = {
+const COLUMN_LABELS: Record<ColumnType, string> = {
+  in_review:   'In Review',
   overdue:     'Overdue',
   critical:    'Critical (<48h)',
   approaching: 'Approaching (2-7d)',
@@ -26,7 +31,7 @@ const COLUMN_LABELS: Record<PressureLevel, string> = {
 };
 
 interface KanbanColumnProps {
-  level: PressureLevel;
+  level: ColumnType;
   tasks: PipelineTask[];
   onTaskClick: (task: PipelineTask) => void;
 }

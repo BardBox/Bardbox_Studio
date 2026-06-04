@@ -14,6 +14,7 @@ export default async function ManagerTasksPage() {
     supabase
       .from('task_pipeline_health')
       .select('*')
+      .eq('task_type', 'design')
       .order('internal_deadline', { ascending: true }),
     supabase
       .from('profiles')

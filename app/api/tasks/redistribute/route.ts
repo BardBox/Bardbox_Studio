@@ -58,10 +58,15 @@ export async function POST(req: NextRequest) {
 
   // Re-run auto-assign for each task sequentially
   let reassigned = 0;
+  let firstError: string | null = null;
   for (const taskId of taskIds) {
     const { error } = await supabaseAdmin.rpc('auto_assign_with_daily_cap', { p_task_id: taskId });
-    if (!error) reassigned++;
+    if (!error) {
+      reassigned++;
+    } else if (!firstError) {
+      firstError = `task ${taskId}: ${error.message}`;
+    }
   }
 
-  return NextResponse.json({ reassigned, total: taskIds.length });
+  return NextResponse.json({ reassigned, total: taskIds.length, firstError });
 }

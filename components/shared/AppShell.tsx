@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, ListChecks, Inbox, FilePlus, CalendarDays,
   MonitorPlay, CheckCircle2, Building2, Users, Umbrella, Pencil,
-  Shield, Settings, ShieldCheck, AlertTriangle, Gauge, LogOut, Menu, UserCircle,
+  Shield, Settings, ShieldCheck, AlertTriangle, Gauge,
+  LogOut, Menu, UserCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';

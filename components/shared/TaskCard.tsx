@@ -15,9 +15,12 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, actions, onClick }: TaskCardProps) {
+  const isSubmitted = task.task_status === 'submitted';
+  const hasRevision = task.task_status === 'working_on_it' && !!task.rejection_notes;
+
   return (
     <Card
-      className={`transition-shadow ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+      className={`transition-shadow ${onClick ? 'cursor-pointer hover:shadow-md' : ''} ${hasRevision ? 'border-red-300' : ''}`}
       onClick={onClick}
     >
       <CardContent className="p-3 flex flex-col gap-2">
@@ -32,6 +35,18 @@ export function TaskCard({ task, actions, onClick }: TaskCardProps) {
           </div>
           <PressureBadge level={task.pressure_level} />
         </div>
+
+        {hasRevision && (
+          <div className="flex items-center gap-1 rounded-md bg-red-50 border border-red-200 px-2 py-1">
+            <span className="text-[10px] font-semibold text-red-600">⚠ Revision requested</span>
+          </div>
+        )}
+
+        {isSubmitted && (
+          <div className="flex items-center gap-1 rounded-md bg-yellow-50 border border-yellow-200 px-2 py-1">
+            <span className="text-[10px] font-semibold text-yellow-700">⏳ Waiting for approval</span>
+          </div>
+        )}
 
         {task.brief && (
           <p className="text-xs text-muted-foreground line-clamp-2">{task.brief}</p>

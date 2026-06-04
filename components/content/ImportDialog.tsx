@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
+import { AlertTriangle, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -134,7 +135,7 @@ export function ImportDialog({ open, onClose }: Props) {
     reader.onload = (ev) => {
       const buf = ev.target?.result;
       if (!buf) return;
-      const wb = XLSX.read(buf, { type: 'array' });
+      const wb = XLSX.read(buf, { type: 'array', cellDates: false });
       const names = wb.SheetNames;
       setSheetNames(names);
 
@@ -158,7 +159,7 @@ export function ImportDialog({ open, onClose }: Props) {
     reader.onload = async (ev) => {
       const buf = ev.target?.result;
       if (!buf) return;
-      const wb = XLSX.read(buf, { type: 'array' });
+      const wb = XLSX.read(buf, { type: 'array', cellDates: false });
 
       // Re-detect on the actual selected tab (may differ from first sheet)
       const isProdSched = detectProductionSchedule(wb, tabName);
@@ -193,28 +194,7 @@ export function ImportDialog({ open, onClose }: Props) {
         return;
       }
 
-      // Call AI mapping for non-template sheets
-      setAiLoading(true);
-      try {
-        const res = await fetch('/api/ai/map-columns', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ headers: hdrs, sample_rows: rows.slice(0, 3) }),
-        });
-        const data = await res.json();
-        if (data.mapping) {
-          const cleaned: Record<string, string> = {};
-          for (const [k, v] of Object.entries(data.mapping)) {
-            if (v && typeof v === 'string') cleaned[k] = v;
-          }
-          setMapping(cleaned);
-          setAiNotes(data.notes ?? {});
-        }
-      } catch {
-        // silently fall back to empty mapping
-      } finally {
-        setAiLoading(false);
-      }
+      // Non-template: show mismatch error — no AI mapping
     };
     reader.readAsArrayBuffer(file);
   }
@@ -349,13 +329,11 @@ export function ImportDialog({ open, onClose }: Props) {
                 Use the Bardbox template for instant import — no column mapping needed.
               </p>
               <a
-                href="/task_sheet_30days.csv"
-                download="task_sheet_30days.csv"
+                href="/api/admin/export/template"
+                download
                 className="shrink-0 flex items-center gap-1.5 text-xs text-primary border border-primary/40 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors whitespace-nowrap"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
+                <Download className="w-3.5 h-3.5" />
                 Download Template
               </a>
             </div>
@@ -396,7 +374,10 @@ export function ImportDialog({ open, onClose }: Props) {
                 onClick={() => {
                   setImportAllTabs(true);
                   const map: Record<string, string> = {};
-                  sheetNames.forEach(n => { map[n] = n; });
+                  sheetNames.forEach(n => {
+                    const match = clients.find(c => c.name.toLowerCase() === n.toLowerCase());
+                    map[n] = match?.name ?? '';
+                  });
                   setTabClientMap(map);
                 }}
                 className={`rounded-lg border px-3 py-2.5 text-sm text-left transition-colors ${
@@ -437,18 +418,24 @@ export function ImportDialog({ open, onClose }: Props) {
                 </p>
                 <div className="grid gap-2">
                   {sheetNames.map(name => (
-                    <div key={name} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-                      <span className="text-xs text-muted-foreground w-32 shrink-0 truncate" title={name}>
-                        Tab: <span className="font-mono">{name}</span>
+                    <div key={name} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+                      <span className="text-xs text-muted-foreground font-mono w-36 shrink-0 truncate" title={name}>
+                        {name}
                       </span>
-                      <span className="text-muted-foreground/40 text-xs">→</span>
-                      <input
-                        type="text"
-                        value={tabClientMap[name] ?? name}
-                        onChange={e => setTabClientMap(prev => ({ ...prev, [name]: e.target.value }))}
-                        placeholder="Client name"
-                        className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 placeholder:text-muted-foreground/40"
-                      />
+                      <span className="text-muted-foreground/40 text-xs shrink-0">→</span>
+                      <Select
+                        value={tabClientMap[name] ?? ''}
+                        onValueChange={v => setTabClientMap(prev => ({ ...prev, [name]: v }))}
+                      >
+                        <SelectTrigger className="flex-1 h-8 text-sm">
+                          <SelectValue placeholder="Select client…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map(c => (
+                            <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   ))}
                 </div>
@@ -557,87 +544,49 @@ export function ImportDialog({ open, onClose }: Props) {
                   Rows with an empty Date will inherit the date from the row above. Rows with no date at all are skipped.
                 </p>
               </div>
-            ) : aiLoading ? (
-              <div className="flex items-center gap-3 py-6 justify-center">
-                <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                <p className="text-sm text-muted-foreground">AI is mapping your columns…</p>
-              </div>
             ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">✨ AI mapped</span>
-                  <p className="text-sm text-muted-foreground">Review and adjust if needed.</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {MAPPING_FIELDS.map(({ key, label }) => (
-                    <div key={key} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs">{label}</Label>
-                        {aiNotes[key] && (
-                          <span className="text-[10px] text-muted-foreground italic truncate max-w-[120px]" title={aiNotes[key]}>
-                            {aiNotes[key]}
-                          </span>
-                        )}
-                      </div>
-                      <Select
-                        value={mapping[key] ?? NONE}
-                        onValueChange={(v) => setMap(key, v ?? NONE) }
-                      >
-                        <SelectTrigger className={`text-xs h-8 ${mapping[key] ? 'border-primary/50' : ''}`}>
-                          <SelectValue placeholder="— skip —" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE}>— skip —</SelectItem>
-                          {headers.map(h => (
-                            <SelectItem key={h} value={h}>{h}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Preview table */}
-                {preview.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Preview — first {Math.min(preview.length, 5)} rows
+              /* ── Template mismatch: file doesn't match Bardbox format ── */
+              <div className="space-y-5">
+                <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                  <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-destructive">File doesn't match the Bardbox template</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your file has columns we don't recognise. Download the Bardbox template, fill it in, and re-upload.
                     </p>
-                    <div className="overflow-x-auto rounded-lg border text-xs">
-                      <table className="w-full">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            {headers.map(h => (
-                              <th key={h} className={`px-3 py-1.5 text-left font-medium whitespace-nowrap ${
-                                Object.values(mapping).includes(h) ? 'text-primary' : 'text-muted-foreground'
-                              }`}>
-                                {h}
-                                {Object.values(mapping).includes(h) && (
-                                  <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1 rounded">
-                                    {Object.entries(mapping).find(([, v]) => v === h)?.[0]}
-                                  </span>
-                                )}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {preview.map((row, i) => (
-                            <tr key={i}>
-                              {headers.map(h => (
-                                <td key={h} className="px-3 py-1.5 text-muted-foreground max-w-[140px] truncate">
-                                  {String(row[h] ?? '')}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
                   </div>
-                )}
-              </>
+                </div>
+
+                <div className="rounded-lg border p-4 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Required columns</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['#', 'Post Date', 'Type', 'Task Name', 'Priority', 'Caption', 'Hashtags', 'Deadline'].map(col => (
+                      <span
+                        key={col}
+                        className={`text-xs px-2.5 py-1 rounded-md font-mono border ${
+                          ['Post Date', 'Type', 'Task Name'].includes(col)
+                            ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
+                            : 'bg-muted border-border text-muted-foreground'
+                        }`}
+                      >
+                        {col}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="text-primary font-medium">Bold</span> columns are required. Others are optional.
+                  </p>
+                </div>
+
+                <a
+                  href="/api/admin/export/template"
+                  download
+                  className="flex items-center justify-center gap-2 w-full rounded-lg border-2 border-primary/50 bg-primary/5 hover:bg-primary/10 text-primary font-medium text-sm py-3 transition-colors"
+                >
+                  <Download className="size-4" />
+                  Download Bardbox Template
+                </a>
+              </div>
             )}
           </div>
         )}
@@ -695,7 +644,14 @@ export function ImportDialog({ open, onClose }: Props) {
           {step === 'tabs' && (
             <>
               <Button variant="outline" onClick={() => setStep('upload')}>Back</Button>
-              <Button onClick={() => setStep('context')}>Next</Button>
+              <Button
+                disabled={importAllTabs && Object.values(tabClientMap).some(v => !v.trim())}
+                onClick={() => importAllTabs ? proceedToMapping() : setStep('context')}
+              >
+                {importAllTabs
+                  ? `Import ${Object.keys(tabClientMap).length} sheets`
+                  : 'Next'}
+              </Button>
             </>
           )}
 
@@ -713,12 +669,16 @@ export function ImportDialog({ open, onClose }: Props) {
           {step === 'mapping' && (
             <>
               <Button variant="outline" onClick={() => setStep('context')}>Back</Button>
-              <Button
-                disabled={!canImport || aiLoading}
-                onClick={() => setStep('confirm')}
-              >
-                Review Import
-              </Button>
+              {(isTemplateFormat || isProductionSchedule) && (
+                <Button disabled={!canImport} onClick={() => setStep('confirm')}>
+                  Review Import
+                </Button>
+              )}
+              {!isTemplateFormat && !isProductionSchedule && (
+                <Button variant="outline" onClick={() => setStep('upload')}>
+                  Upload Different File
+                </Button>
+              )}
             </>
           )}
 

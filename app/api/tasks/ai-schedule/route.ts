@@ -8,8 +8,8 @@ export const runtime = 'nodejs';
 
 const VIDEO_TYPES = new Set(['reel', 'video', 'youtube']);
 
-function requiredSpecialty(contentType: string): 'video_editor' | 'graphic_designer' {
-  return VIDEO_TYPES.has(contentType.toLowerCase()) ? 'video_editor' : 'graphic_designer';
+function requiredSpecialty(contentType: string): 'video_editor' | null {
+  return VIDEO_TYPES.has(contentType.toLowerCase()) ? 'video_editor' : null;
 }
 
 export async function POST(req: NextRequest) {

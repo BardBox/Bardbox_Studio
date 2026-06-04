@@ -23,6 +23,34 @@ import { useRouter } from 'next/navigation';
 import { TaskDetailPanel } from '@/components/shared/TaskDetailPanel';
 import { ExportTasksModal } from '@/components/manager/ExportTasksModal';
 
+// Consistent color per person name (stable across renders)
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500',
+  'bg-orange-500', 'bg-rose-500', 'bg-teal-500',
+  'bg-indigo-500', 'bg-amber-500',
+];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function PersonChip({ name, sub }: { name: string | null; sub?: string }) {
+  if (!name) return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+  const color = avatarColor(name);
+  return (
+    <div className="flex items-center gap-2">
+      <span className={cn('inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-[10px] font-bold shrink-0', color)}>
+        {name.charAt(0).toUpperCase()}
+      </span>
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-medium truncate">{name}</span>
+        {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
 const STATUS_BADGE: Record<string, string> = {
   todo:          'bg-status-cloud text-foreground',
   working_on_it: 'bg-status-sky text-foreground',
@@ -93,6 +121,7 @@ const EMPTY_FILTERS: DataTableFilterMeta = {
   client_name:   { value: null, matchMode: FilterMatchMode.EQUALS },
   platform:      { value: null, matchMode: FilterMatchMode.EQUALS },
   assignee_name: { value: null, matchMode: FilterMatchMode.EQUALS },
+  smo_name:      { value: null, matchMode: FilterMatchMode.EQUALS },
   task_status:   { value: null, matchMode: FilterMatchMode.EQUALS },
 };
 
@@ -185,6 +214,17 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
       placeholder="Anyone" showClear style={{ minWidth: '12rem' }} />
   );
 
+  const smoOptions = useMemo(() => {
+    const names = [...new Set(initialTasks.map(t => t.smo_name).filter(Boolean) as string[])];
+    return names.map(n => ({ label: n, value: n }));
+  }, [initialTasks]);
+
+  const smoFilterTemplate = (options: ColumnFilterElementTemplateOptions) => (
+    <Dropdown value={options.value} options={smoOptions}
+      onChange={(e) => options.filterCallback(e.value, options.index)}
+      placeholder="Any SMO" showClear style={{ minWidth: '12rem' }} />
+  );
+
   const statusFilterTemplate = (options: ColumnFilterElementTemplateOptions) => (
     <Dropdown value={options.value} options={STATUS_OPTIONS}
       onChange={(e) => options.filterCallback(e.value, options.index)}
@@ -207,17 +247,13 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
     </span>
   );
 
-  const assigneeBody  = (t: PipelineTask) => (
-    <div className="flex flex-col gap-0.5">
-      <span>{t.assignee_name ?? <span className="text-muted-foreground/60 italic text-xs">unassigned</span>}</span>
-      {t.assignee_specialty === 'video_editor' && (
-        <span className="text-[10px] text-purple-600 font-medium">🎬 Video Editor</span>
-      )}
-      {t.assignee_specialty === 'graphic_designer' && (
-        <span className="text-[10px] text-blue-600 font-medium">🎨 Graphic</span>
-      )}
-    </div>
-  );
+  const assigneeBody  = (t: PipelineTask) => {
+    const sub = t.assignee_specialty === 'video_editor' ? '🎬 Video'
+      : t.assignee_specialty === 'graphic_designer' ? '🎨 Graphic' : undefined;
+    return <PersonChip name={t.assignee_name} sub={sub} />;
+  };
+
+  const smoBody = (t: PipelineTask) => <PersonChip name={t.smo_name} />;
 
   const statusBody    = (t: PipelineTask) => (
     <Badge className={cn('border-0 text-xs font-medium px-2.5 py-0.5', STATUS_BADGE[t.task_status] ?? 'bg-muted text-foreground')}>
@@ -374,13 +410,14 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
           onRowClick={(e) => setPanelTask(e.data as PipelineTask)}
           rowClassName={() => 'cursor-pointer'}
         >
-          <Column field="client_name"   header="Client"         sortable filter filterElement={clientFilterTemplate}   filterMatchMode={FilterMatchMode.EQUALS} body={clientBody}   style={{ minWidth: '130px' }} />
-          <Column field="platform"      header="Platform / Type" sortable filter filterElement={platformFilterTemplate} filterMatchMode={FilterMatchMode.EQUALS} body={platformBody} style={{ minWidth: '140px' }} />
-          <Column field="posting_date"  header="Post Date"      sortable body={postDateBody}  style={{ minWidth: '100px' }} />
-          <Column field="assignee_name" header="Assignee"       sortable filter filterElement={assigneeFilterTemplate} filterMatchMode={FilterMatchMode.EQUALS} body={assigneeBody} style={{ minWidth: '130px' }} />
-          <Column field="priority"      header="Priority"       sortable body={priorityBody}  style={{ minWidth: '90px' }} />
-          <Column field="task_status"   header="Status"         sortable filter filterElement={statusFilterTemplate}   filterMatchMode={FilterMatchMode.EQUALS} body={statusBody}   style={{ minWidth: '110px' }} />
-          <Column field="internal_deadline" header="Deadline"   sortable body={deadlineBody}  style={{ minWidth: '110px' }} />
+          <Column field="client_name"       header="Client"         sortable filter filterElement={clientFilterTemplate}   filterMatchMode={FilterMatchMode.EQUALS} body={clientBody}   style={{ minWidth: '120px' }} />
+          <Column field="platform"          header="Platform / Type" sortable filter filterElement={platformFilterTemplate} filterMatchMode={FilterMatchMode.EQUALS} body={platformBody} style={{ minWidth: '130px' }} />
+          <Column field="posting_date"      header="Post Date"      sortable body={postDateBody}  style={{ minWidth: '95px' }} />
+          <Column field="internal_deadline" header="Deadline"       sortable body={deadlineBody}  style={{ minWidth: '105px' }} />
+          <Column field="smo_name"          header="SMO"            sortable filter filterElement={smoFilterTemplate}      filterMatchMode={FilterMatchMode.EQUALS} body={smoBody}      style={{ minWidth: '140px' }} />
+          <Column field="assignee_name"     header="Assignee"       sortable filter filterElement={assigneeFilterTemplate} filterMatchMode={FilterMatchMode.EQUALS} body={assigneeBody} style={{ minWidth: '140px' }} />
+          <Column field="priority"          header="Priority"       sortable body={priorityBody}  style={{ minWidth: '90px' }} />
+          <Column field="task_status"       header="Status"         sortable filter filterElement={statusFilterTemplate}   filterMatchMode={FilterMatchMode.EQUALS} body={statusBody}   style={{ minWidth: '110px' }} />
           <Column body={actionsBody} style={{ width: '80px' }} />
         </DataTable>
       </div>

@@ -2,8 +2,17 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { ContentCalendar } from '@/components/content/ContentCalendar';
 import { ContentTable } from '@/components/content/ContentTable';
+import { RedistributeButton } from '@/components/content/RedistributeButton';
 import type { PipelineTask } from '@/lib/types';
 import Link from 'next/link';
+
+type View = 'table' | 'calendar' | 'employees';
+
+function tabClass(active: boolean) {
+  return `text-xs px-3 py-1.5 rounded-md transition-colors ${
+    active ? 'bg-secondary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+  }`;
+}
 
 export default async function ContentPage({
   searchParams,
@@ -13,6 +22,8 @@ export default async function ContentPage({
   const { month, client, platform, view, assignee } = await searchParams;
   const supabase = await createClient();
 
+  const activeView: View = view === 'calendar' ? 'calendar' : view === 'employees' ? 'employees' : 'table';
+
   const now = new Date();
   const activeMonth = month ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const [ymYear, ymMonth] = activeMonth.split('-').map(Number);
@@ -20,9 +31,7 @@ export default async function ContentPage({
   const daysInMonth = new Date(ymYear, ymMonth, 0).getDate();
   const lastDay = `${activeMonth}-${String(daysInMonth).padStart(2, '0')}`;
 
-  const showTable = view !== 'calendar';
-
-  // Team members for filter in both views
+  // Team members — used by all views
   const { data: teamMembers } = await supabase
     .from('profiles')
     .select('id, full_name, role')
@@ -32,14 +41,41 @@ export default async function ContentPage({
     .order('full_name');
 
   const allTeamMembers = (teamMembers ?? []) as { id: string; full_name: string; role: string }[];
+  const designersOnly = allTeamMembers.filter(m => m.role === 'designer');
 
-  if (showTable) {
-    // If filtering by team member, get matching content_row_ids first
+  // Shared tab bar links
+  const tabs = (
+    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
+      <Link
+        href={`/content?view=table&month=${activeMonth}${client ? `&client=${client}` : ''}${platform ? `&platform=${platform}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
+        className={tabClass(activeView === 'table')}
+      >
+        Table
+      </Link>
+      <Link
+        href={`/content?view=calendar&month=${activeMonth}${client ? `&client=${client}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
+        className={tabClass(activeView === 'calendar')}
+      >
+        Calendar
+      </Link>
+      <Link
+        href={`/content?view=employees&month=${activeMonth}${client ? `&client=${client}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
+        className={tabClass(activeView === 'employees')}
+      >
+        Employees
+      </Link>
+    </div>
+  );
+
+  // ── TABLE ─────────────────────────────────────────────────────────────────
+  if (activeView === 'table') {
     let assigneeRowIds: number[] | null = null;
     if (assignee) {
+      const assigneeProfile = allTeamMembers.find(m => m.full_name === assignee);
+      const assigneeId = assigneeProfile?.id ?? assignee;
       const [{ data: taskRows }, { data: preferredRows }] = await Promise.all([
-        supabase.from('tasks').select('content_row_id').eq('assignee_id', assignee),
-        supabase.from('content_rows').select('id').eq('preferred_assignee_id', assignee),
+        supabase.from('tasks').select('content_row_id').eq('assignee_id', assigneeId),
+        supabase.from('content_rows').select('id').eq('preferred_assignee_id', assigneeId),
       ]);
       const ids = new Set<number>();
       for (const t of taskRows ?? []) ids.add(t.content_row_id);
@@ -80,21 +116,10 @@ export default async function ContentPage({
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Content</h1>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/content?view=table&month=${activeMonth}${client ? `&client=${client}` : ''}${platform ? `&platform=${platform}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${showTable ? 'bg-secondary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-            >
-              Table
-            </Link>
-            <Link
-              href={`/content?view=calendar&month=${activeMonth}${client ? `&client=${client}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${!showTable ? 'bg-secondary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-            >
-              Calendar
-            </Link>
+            {tabs}
+            <RedistributeButton month={activeMonth} />
           </div>
         </div>
-
         <ContentTable
           rows={(rowsResult.data ?? []) as Parameters<typeof ContentTable>[0]['rows']}
           clients={uniqueClients}
@@ -110,16 +135,32 @@ export default async function ContentPage({
     );
   }
 
-  // Calendar view
+  // ── CALENDAR (all tasks) or EMPLOYEES (design only) ───────────────────────
+  const isEmployeeView = activeView === 'employees';
+
   let taskQuery = supabase
     .from('task_pipeline_health')
-    .select('*')
-    .gte('posting_date', firstDay)
-    .lte('posting_date', lastDay)
-    .order('posting_date', { ascending: true });
+    .select('*');
 
+  if (isEmployeeView) {
+    // Show design tasks by their internal_deadline (when the designer must submit)
+    taskQuery = taskQuery
+      .eq('task_type', 'design')
+      .gte('internal_deadline', firstDay)
+      .lte('internal_deadline', `${lastDay}T23:59:59`)
+      .order('internal_deadline', { ascending: true });
+  } else {
+    taskQuery = taskQuery
+      .gte('posting_date', firstDay)
+      .lte('posting_date', lastDay)
+      .order('posting_date', { ascending: true });
+  }
   if (client) taskQuery = taskQuery.eq('client_name', client);
-  if (assignee) taskQuery = taskQuery.eq('assignee_id', assignee);
+  if (assignee) {
+    const members = isEmployeeView ? designersOnly : allTeamMembers;
+    const calAssigneeId = members.find(m => m.full_name === assignee)?.id ?? assignee;
+    taskQuery = taskQuery.eq('assignee_id', calAssigneeId);
+  }
 
   const [tasks, clientsRes, holidaysRes] = await Promise.all([
     taskQuery,
@@ -136,28 +177,20 @@ export default async function ContentPage({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Content</h1>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/content?view=table&month=${activeMonth}${client ? `&client=${client}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
-            className="text-xs px-3 py-1.5 rounded-md transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            Table
-          </Link>
-          <Link
-            href={`/content?view=calendar&month=${activeMonth}${client ? `&client=${client}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
-            className="text-xs px-3 py-1.5 rounded-md transition-colors bg-secondary font-medium"
-          >
-            Calendar
-          </Link>
+          {tabs}
+          <RedistributeButton month={activeMonth} />
         </div>
       </div>
       <ContentCalendar
+        key={`${activeView}-${assignee ?? 'all'}-${client ?? 'all'}-${firstDay.slice(0, 7)}`}
         tasks={(tasks.data ?? []) as PipelineTask[]}
         currentMonth={firstDay.slice(0, 7)}
         clients={uniqueClients}
-        teamMembers={allTeamMembers}
+        teamMembers={isEmployeeView ? designersOnly : allTeamMembers}
         activeClient={client ?? null}
         activeAssignee={assignee ?? null}
         holidays={(holidaysRes.data ?? []) as { holiday_date: string; name: string }[]}
+        view={activeView}
       />
     </div>
   );

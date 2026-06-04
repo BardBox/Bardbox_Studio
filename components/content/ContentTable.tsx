@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter } from 'lucide-react';
@@ -27,6 +28,18 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ImportDialog } from './ImportDialog';
+
+// Consistent color per person name
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500',
+  'bg-orange-500', 'bg-rose-500', 'bg-teal-500',
+  'bg-indigo-500', 'bg-amber-500',
+];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 interface AiSuggestion {
   task_id: number;
@@ -111,108 +124,67 @@ function TaskBadge({ tasks }: { tasks: TaskSummary[] }) {
   );
 }
 
-function AssigneeCell({ tasks, teamMembers, preferredName, preferredId }: { tasks: TaskSummary[]; teamMembers: TeamMember[]; preferredName?: string | null; preferredId?: string | null }) {
-  const [loadingId, setLoadingId] = useState<number | null>(null);
+function AssignTaskCell({ task, pool }: { task: TaskSummary | undefined; pool: TeamMember[] }) {
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const lookup = (id: string | null) => teamMembers.find(m => m.id === id)?.full_name ?? null;
-  const designers = teamMembers.filter(m => m.role === 'designer');
-  const smos = teamMembers.filter(m => m.role === 'smo');
+  const name = pool.find(m => m.id === task?.assignee_id)?.full_name ?? null;
+  const color = name ? avatarColor(name) : 'bg-muted-foreground/20';
 
-  const designTask = tasks.find(t => t.task_type === 'design');
-  const postTask   = tasks.find(t => t.task_type === 'post');
+  if (!task) return <span className="text-xs text-muted-foreground/40">—</span>;
 
-  if (tasks.length === 0) {
-    if (preferredId && preferredName) return <span className="text-xs text-muted-foreground italic">{preferredName}</span>;
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-
-  async function assign(taskId: number, assigneeId: string | 'auto') {
-    setLoadingId(taskId);
+  async function assign(assigneeId: string | 'auto') {
+    setLoading(true);
     const res = assigneeId === 'auto'
       ? await fetch('/api/tasks/auto-assign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task_id: taskId }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: task!.id }),
         })
       : await fetch('/api/tasks/override-assignee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task_id: taskId, assignee_id: assigneeId }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: task!.id, assignee_id: assigneeId }),
         });
-    setLoadingId(null);
+    setLoading(false);
     if (res.ok) { toast.success('Assigned'); router.refresh(); }
-    else {
-      const j = await res.json().catch(() => ({}));
-      toast.error(j.error ?? 'Failed to assign');
-    }
+    else { const j = await res.json().catch(() => ({})); toast.error(j.error ?? 'Failed'); }
   }
 
-  function deadlineUrgency(dl: string | null) {
-    if (!dl) return '';
-    const hrs = (new Date(dl).getTime() - Date.now()) / 3_600_000;
-    if (hrs < 0)   return 'text-destructive';
-    if (hrs < 48)  return 'text-yellow-600';
-    if (hrs < 120) return 'text-amber-500';
-    return 'text-muted-foreground';
-  }
-
-  function fmtDeadline(dl: string | null) {
-    if (!dl) return null;
-    return new Date(dl).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  }
-
-  function TaskAssignRow({
-    taskItem,
-    label,
-    pool,
-  }: {
-    taskItem: TaskSummary;
-    label: string;
-    pool: TeamMember[];
-  }) {
-    const name = lookup(taskItem.assignee_id);
-    const dlCls = deadlineUrgency(taskItem.internal_deadline);
-    const dlStr = fmtDeadline(taskItem.internal_deadline);
-    const isLoading = loadingId === taskItem.id;
-
-    return (
-      <div className="flex items-center gap-1">
-        <span className="text-muted-foreground text-xs w-10 shrink-0">{label}:</span>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            disabled={isLoading}
-            className="text-xs font-medium hover:underline underline-offset-2 cursor-pointer max-w-[90px] truncate disabled:opacity-50"
-          >
-            {isLoading ? '…' : (name ?? <span className="text-muted-foreground italic">Assign</span>)}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-52">
-            <DropdownMenuItem onClick={() => assign(taskItem.id, 'auto')} className="gap-2 text-purple-600 font-medium">
-              ✦ Auto-assign (smart)
-            </DropdownMenuItem>
-            {pool.map(m => (
-              <DropdownMenuItem
-                key={m.id}
-                onClick={() => assign(taskItem.id, m.id)}
-                className="gap-2"
-              >
-                {m.full_name}
-                {m.id === taskItem.assignee_id && <span className="ml-auto text-xs text-muted-foreground">current</span>}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {dlStr && (
-          <span className={`text-xs ${dlCls}`} title="Design deadline">{dlStr}</span>
-        )}
-      </div>
-    );
-  }
+  const dlHrs = task.internal_deadline
+    ? (new Date(task.internal_deadline).getTime() - Date.now()) / 3_600_000
+    : null;
+  const dlCls = dlHrs === null ? '' : dlHrs < 0 ? 'text-destructive' : dlHrs < 48 ? 'text-yellow-600' : dlHrs < 120 ? 'text-amber-500' : 'text-muted-foreground';
+  const dlStr = task.internal_deadline
+    ? new Date(task.internal_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    : null;
 
   return (
-    <div className="flex flex-col gap-0.5">
-      {designTask && <TaskAssignRow taskItem={designTask} label="Design" pool={designers} />}
-      {postTask   && <TaskAssignRow taskItem={postTask}   label="Post"   pool={smos} />}
+    <div className="flex items-center gap-1.5">
+      <span className={cn('inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[9px] font-bold shrink-0', color)}>
+        {name ? name.charAt(0).toUpperCase() : '?'}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={loading}
+          className="text-xs font-medium hover:underline underline-offset-2 cursor-pointer max-w-[90px] truncate disabled:opacity-50"
+        >
+          {loading ? '…' : (name ?? <span className="text-muted-foreground/60 italic">Assign</span>)}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          <DropdownMenuItem onClick={() => assign('auto')} className="gap-2 text-purple-600 font-medium">
+            ✦ Auto-assign (smart)
+          </DropdownMenuItem>
+          {pool.map(m => (
+            <DropdownMenuItem key={m.id} onClick={() => assign(m.id)} className="gap-2">
+              <span className={cn('inline-flex items-center justify-center w-4 h-4 rounded-full text-white text-[8px] font-bold shrink-0', avatarColor(m.full_name))}>
+                {m.full_name.charAt(0)}
+              </span>
+              {m.full_name}
+              {m.id === task.assignee_id && <span className="ml-auto text-xs text-muted-foreground">current</span>}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {dlStr && <span className={`text-[10px] tabular-nums ${dlCls}`}>{dlStr}</span>}
     </div>
   );
 }
@@ -506,41 +478,45 @@ export function ContentTable({
           </Select>
 
           {/* Client filter */}
-          <Select value={activeClient ?? NONE} onValueChange={(v) => pushFilter('client', v === NONE || !v ? null : v)}>
+          <Select value={activeClient ?? '__all__'} onValueChange={(v) => pushFilter('client', v === '__all__' ? null : v)}>
             <SelectTrigger className="h-8 text-xs w-36">
               <SelectValue placeholder="All clients" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>All clients</SelectItem>
+              <SelectItem value="__all__">All clients</SelectItem>
               {clients.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          {/* Platform filter */}
-          <Select value={activePlatform ?? NONE} onValueChange={(v) => pushFilter('platform', v === NONE || !v ? null : v)}>
-            <SelectTrigger className="h-8 text-xs w-36">
-              <SelectValue placeholder="All platforms" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>All platforms</SelectItem>
-              {platforms.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
             </SelectContent>
           </Select>
 
           {/* Team member filter */}
           <Select
-            value={activeAssignee ?? NONE}
-            onValueChange={(v) => pushFilter('assignee', v === NONE || !v ? null : v)}
+            value={activeAssignee ?? '__all__'}
+            onValueChange={(v) => pushFilter('assignee', v === '__all__' ? null : v)}
           >
-            <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue placeholder="All team" />
+            <SelectTrigger className="h-8 text-xs w-52">
+              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-muted-foreground')}>
+                {activeAssignee ?? 'All team'}
+              </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>All team</SelectItem>
+              <SelectItem value="__all__">All team</SelectItem>
               {teamMembers.map(m => (
-                <SelectItem key={m.id} value={m.id}>
-                  {m.full_name}
-                  <span className="ml-1 text-muted-foreground capitalize">({m.role})</span>
+                <SelectItem key={m.id} value={m.full_name}>
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase">
+                      {m.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                    </span>
+                    <span className="font-medium">{m.full_name}</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      m.role === 'designer'
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                        : m.role === 'smo'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                        : 'bg-muted text-muted-foreground'
+                    } capitalize`}>
+                      {m.role}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -674,7 +650,7 @@ export function ContentTable({
                     </th>
                   );
                 })()}
-                {/* Assigned To column */}
+                {/* Designer column */}
                 {(() => {
                   const isActive = sortField === 'assignee';
                   const hasFilter = !!colFilters['assignee'];
@@ -682,12 +658,12 @@ export function ContentTable({
                     <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => toggleSort('assignee')} className="flex items-center gap-1 hover:text-foreground transition-colors group">
-                          Assigned To
+                          Employee
                           {isActive ? (sortOrder === 1 ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />}
                         </button>
                         {assigneeOptions.length > 0 && (
                           <DropdownMenu>
-                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`} title="Filter by assignee">
+                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`} title="Filter by employee">
                               <ListFilter className="h-3 w-3" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
@@ -704,6 +680,10 @@ export function ContentTable({
                     </th>
                   );
                 })()}
+                {/* SMO column */}
+                <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
+                  SMO
+                </th>
                 {/* Source column */}
                 {(() => {
                   const isActive = sortField === 'source';
@@ -739,7 +719,7 @@ export function ContentTable({
             <tbody className="divide-y">
               {displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={10} className="px-3 py-10 text-center text-sm text-muted-foreground">
                     No content rows found.
                   </td>
                 </tr>
@@ -773,7 +753,16 @@ export function ContentTable({
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <AssigneeCell tasks={row.tasks} teamMembers={teamMembers} preferredName={row.preferred_assignee_name} preferredId={row.preferred_assignee_id} />
+                    <AssignTaskCell
+                      task={row.tasks.find(t => t.task_type === 'design')}
+                      pool={teamMembers.filter(m => m.role === 'designer')}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <AssignTaskCell
+                      task={row.tasks.find(t => t.task_type === 'post')}
+                      pool={teamMembers.filter(m => m.role === 'smo')}
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant="outline" className="text-xs capitalize">{row.source}</Badge>
@@ -817,7 +806,11 @@ export function ContentTable({
                   <div>
                     <p className="text-sm font-medium capitalize">
                       {s.task_type} task · {s.client}
-                      <span className="text-muted-foreground font-normal ml-1">({s.platform})</span>
+                      {(s.content_type || s.platform) && (
+                        <span className="text-muted-foreground font-normal ml-1">
+                          ({s.content_type || s.platform})
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Assigned to: <span className="font-medium text-foreground">{s.assignee_name}</span>
