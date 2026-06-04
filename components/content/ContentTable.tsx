@@ -4,15 +4,13 @@ import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import {
   DropdownMenu,
@@ -29,7 +27,8 @@ import {
 } from '@/components/ui/dialog';
 import { ImportDialog } from './ImportDialog';
 
-// Consistent color per person name
+// ── Avatar color ──────────────────────────────────────────────────────────────
+
 const AVATAR_COLORS = [
   'bg-blue-500', 'bg-violet-500', 'bg-emerald-500',
   'bg-orange-500', 'bg-rose-500', 'bg-teal-500',
@@ -40,6 +39,8 @@ function avatarColor(name: string): string {
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffff;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 interface AiSuggestion {
   task_id: number;
@@ -102,36 +103,51 @@ interface Props {
   activeMonth: string;
 }
 
+// ── Status styles (glass pills) ───────────────────────────────────────────────
+
 const ROW_STATUSES = ['draft', 'in_design', 'in_review', 'approved', 'scheduled', 'posted', 'cancelled'];
 
-const STATUS_COLORS: Record<string, string> = {
-  draft:      'bg-status-pearl text-status-pearl-foreground',
-  in_design:  'bg-status-sky-blue text-status-sky-blue-foreground',
-  in_review:  'bg-status-buttercup text-status-buttercup-foreground',
-  approved:   'bg-status-mint text-status-mint-foreground',
-  scheduled:  'bg-status-lavender text-status-lavender-foreground',
-  posted:     'bg-status-seafoam text-status-seafoam-foreground',
-  cancelled:  'bg-status-blush text-status-blush-foreground',
+const STATUS_GLASS: Record<string, string> = {
+  draft:      'bg-white/40 border-white/60 text-slate-600 dark:bg-white/10 dark:border-white/20 dark:text-slate-300',
+  in_design:  'bg-blue-500/15 border-blue-400/40 text-blue-700 dark:bg-blue-400/20 dark:text-blue-300',
+  in_review:  'bg-amber-500/15 border-amber-400/40 text-amber-700 dark:bg-amber-400/20 dark:text-amber-300',
+  approved:   'bg-emerald-500/15 border-emerald-400/40 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-300',
+  scheduled:  'bg-violet-500/15 border-violet-400/40 text-violet-700 dark:bg-violet-400/20 dark:text-violet-300',
+  posted:     'bg-teal-500/15 border-teal-400/40 text-teal-700 dark:bg-teal-400/20 dark:text-teal-300',
+  cancelled:  'bg-red-500/15 border-red-400/40 text-red-700 dark:bg-red-400/20 dark:text-red-300',
 };
 
+// ── Task progress badge ───────────────────────────────────────────────────────
+
 function TaskBadge({ tasks }: { tasks: TaskSummary[] }) {
-  if (tasks.length === 0) return <span className="text-xs text-muted-foreground">No tasks</span>;
+  if (tasks.length === 0) return <span className="text-xs text-slate-400">No tasks</span>;
   const done = tasks.filter(t => ['done', 'approved'].includes(t.status)).length;
+  const pct = tasks.length > 0 ? (done / tasks.length) * 100 : 0;
   return (
-    <span className={`text-xs font-medium ${done === tasks.length ? 'text-green-600' : 'text-muted-foreground'}`}>
-      {done}/{tasks.length} done
-    </span>
+    <div className="flex items-center gap-2">
+      <div className="w-12 h-1.5 bg-white/50 dark:bg-white/10 rounded-full overflow-hidden border border-white/40">
+        <div
+          className={`h-full rounded-full transition-all ${done === tasks.length ? 'bg-emerald-500' : 'bg-blue-500'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={`text-[10px] font-bold tabular-nums ${done === tasks.length ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+        {done}/{tasks.length}
+      </span>
+    </div>
   );
 }
+
+// ── Assignee cell with dropdown ───────────────────────────────────────────────
 
 function AssignTaskCell({ task, pool }: { task: TaskSummary | undefined; pool: TeamMember[] }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const name = pool.find(m => m.id === task?.assignee_id)?.full_name ?? null;
-  const color = name ? avatarColor(name) : 'bg-muted-foreground/20';
+  const color = name ? avatarColor(name) : 'bg-slate-300 dark:bg-slate-600';
 
-  if (!task) return <span className="text-xs text-muted-foreground/40">—</span>;
+  if (!task) return <span className="text-xs text-slate-300 dark:text-slate-600">—</span>;
 
   async function assign(assigneeId: string | 'auto') {
     setLoading(true);
@@ -152,22 +168,22 @@ function AssignTaskCell({ task, pool }: { task: TaskSummary | undefined; pool: T
   const dlHrs = task.internal_deadline
     ? (new Date(task.internal_deadline).getTime() - Date.now()) / 3_600_000
     : null;
-  const dlCls = dlHrs === null ? '' : dlHrs < 0 ? 'text-destructive' : dlHrs < 48 ? 'text-yellow-600' : dlHrs < 120 ? 'text-amber-500' : 'text-muted-foreground';
+  const dlCls = dlHrs === null ? '' : dlHrs < 0 ? 'text-red-600' : dlHrs < 48 ? 'text-amber-600' : dlHrs < 120 ? 'text-amber-500' : 'text-slate-400';
   const dlStr = task.internal_deadline
     ? new Date(task.internal_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
     : null;
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={cn('inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[9px] font-bold shrink-0', color)}>
+      <span className={cn('inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-[10px] font-bold shrink-0', color)}>
         {name ? name.charAt(0).toUpperCase() : '?'}
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger
           disabled={loading}
-          className="text-xs font-medium hover:underline underline-offset-2 cursor-pointer max-w-[90px] truncate disabled:opacity-50"
+          className="text-xs font-semibold hover:text-blue-600 hover:underline underline-offset-2 cursor-pointer max-w-[80px] truncate disabled:opacity-50 text-slate-700 dark:text-slate-300 transition-colors"
         >
-          {loading ? '…' : (name ?? <span className="text-muted-foreground/60 italic">Assign</span>)}
+          {loading ? '…' : (name ?? <span className="text-slate-400 italic font-normal">Assign</span>)}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
           <DropdownMenuItem onClick={() => assign('auto')} className="gap-2 text-purple-600 font-medium">
@@ -184,10 +200,12 @@ function AssignTaskCell({ task, pool }: { task: TaskSummary | undefined; pool: T
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {dlStr && <span className={`text-[10px] tabular-nums ${dlCls}`}>{dlStr}</span>}
+      {dlStr && <span className={`text-[10px] tabular-nums font-medium ${dlCls}`}>{dlStr}</span>}
     </div>
   );
 }
+
+// ── Inline status select ──────────────────────────────────────────────────────
 
 function InlineStatusSelect({ rowId, currentStatus }: { rowId: number; currentStatus: string }) {
   const [status, setStatus] = useState(currentStatus);
@@ -214,15 +232,19 @@ function InlineStatusSelect({ rowId, currentStatus }: { rowId: number; currentSt
     }
   }
 
-  const cls = STATUS_COLORS[status] ?? 'bg-muted text-muted-foreground';
+  const cls = STATUS_GLASS[status] ?? STATUS_GLASS.draft;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={loading}
-        className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 transition-opacity border-0 ${cls}`}
+        className={cn(
+          'text-[11px] px-2.5 py-1 rounded-full font-semibold cursor-pointer',
+          'hover:brightness-110 transition-all border capitalize',
+          cls
+        )}
       >
-        {loading ? '…' : status.replace('_', ' ')}
+        {loading ? '…' : status.replace(/_/g, ' ')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {ROW_STATUSES.map(s => (
@@ -231,8 +253,8 @@ function InlineStatusSelect({ rowId, currentStatus }: { rowId: number; currentSt
             onClick={() => change(s)}
             className="gap-2 cursor-pointer"
           >
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[s]}`}>
-              {s.replace('_', ' ')}
+            <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-semibold border capitalize', STATUS_GLASS[s])}>
+              {s.replace(/_/g, ' ')}
             </span>
             {s === status && <span className="ml-auto text-xs text-muted-foreground">current</span>}
           </DropdownMenuItem>
@@ -241,6 +263,8 @@ function InlineStatusSelect({ rowId, currentStatus }: { rowId: number; currentSt
     </DropdownMenu>
   );
 }
+
+// ── Main table ────────────────────────────────────────────────────────────────
 
 export function ContentTable({
   rows, clients, platforms, designers, teamMembers,
@@ -299,7 +323,6 @@ export function ContentTable({
   const displayRows = useMemo(() => {
     let result = [...rows];
 
-    // Apply column filters
     for (const [field, val] of Object.entries(colFilters)) {
       if (!val) continue;
       if (field === 'assignee') {
@@ -382,7 +405,6 @@ export function ContentTable({
       setSelected(new Set());
       router.refresh();
 
-      // Run AI schedule analysis on the newly created tasks
       const taskIds = (json.rows as Array<{ design_task_id: number; post_task_id: number }> | null)
         ?.flatMap(r => [r.design_task_id, r.post_task_id].filter(Boolean)) ?? [];
 
@@ -413,8 +435,6 @@ export function ContentTable({
       setLoading(false);
     }
   }
-
-
 
   async function handleBulkStatus() {
     if (!bulkStatus) return;
@@ -460,15 +480,26 @@ export function ContentTable({
     monthOptions.push({ value, label });
   }
 
+  // TH helper
+  const thCls = 'px-3 py-2.5 text-left text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400 whitespace-nowrap';
+  const sortIcon = (field: string) => {
+    const isActive = sortField === field;
+    return isActive
+      ? (sortOrder === 1 ? <ArrowUp className="h-3 w-3 text-blue-500" /> : <ArrowDown className="h-3 w-3 text-blue-500" />)
+      : <ArrowUpDown className="h-3 w-3 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors" />;
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Header bar */}
+    <div className="space-y-3">
+
+      {/* ── Filter bar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
+
           {/* Month filter */}
           <Select value={activeMonth} onValueChange={(v) => v && pushFilter('month', v)}>
-            <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue />
+            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[120px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+              <span className="flex-1 text-left truncate">{activeMonth}</span>
             </SelectTrigger>
             <SelectContent>
               {monthOptions.map(m => (
@@ -479,8 +510,10 @@ export function ContentTable({
 
           {/* Client filter */}
           <Select value={activeClient ?? '__all__'} onValueChange={(v) => pushFilter('client', v === '__all__' ? null : v)}>
-            <SelectTrigger className="h-8 text-xs w-36">
-              <SelectValue placeholder="All clients" />
+            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[110px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+              <span className={cn('flex-1 text-left truncate', !activeClient && 'text-slate-500 dark:text-slate-400')}>
+                {activeClient ?? 'All clients'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All clients</SelectItem>
@@ -488,13 +521,13 @@ export function ContentTable({
             </SelectContent>
           </Select>
 
-          {/* Team member filter */}
+          {/* Team filter */}
           <Select
             value={activeAssignee ?? '__all__'}
             onValueChange={(v) => pushFilter('assignee', v === '__all__' ? null : v)}
           >
-            <SelectTrigger className="h-8 text-xs w-52">
-              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-muted-foreground')}>
+            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[110px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-slate-500 dark:text-slate-400')}>
                 {activeAssignee ?? 'All team'}
               </span>
             </SelectTrigger>
@@ -507,13 +540,13 @@ export function ContentTable({
                       {m.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                     </span>
                     <span className="font-medium">{m.full_name}</span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${
                       m.role === 'designer'
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                         : m.role === 'smo'
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
                         : 'bg-muted text-muted-foreground'
-                    } capitalize`}>
+                    }`}>
                       {m.role}
                     </span>
                   </span>
@@ -521,46 +554,52 @@ export function ContentTable({
               ))}
             </SelectContent>
           </Select>
-
         </div>
 
-        <Button size="sm" onClick={() => setImportOpen(true)}>
-          + Import
-        </Button>
+        {/* Import CTA */}
+        <button
+          onClick={() => setImportOpen(true)}
+          className="h-9 flex items-center gap-2 px-5 rounded-full bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 text-white text-xs font-bold transition-colors shadow-md"
+        >
+          <Plus className="size-3.5" />
+          Import
+        </button>
       </div>
 
-      {/* Bulk action bar */}
+      {/* ── Bulk action bar ──────────────────────────────────────────────────── */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 flex-wrap">
-          <span className="text-sm font-medium text-primary">{selected.size} selected</span>
+        <div className="flex items-center gap-2 bg-blue-500/10 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 flex-wrap">
+          <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{selected.size} selected</span>
           <div className="flex-1" />
-          <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading || aiChecking}>
+          <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading || aiChecking} className="rounded-full text-xs h-7">
             {aiChecking ? '✦ AI analysing…' : 'Create Tasks'}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setStatusOpen(true)} disabled={loading}>
+          <Button size="sm" variant="outline" onClick={() => setStatusOpen(true)} disabled={loading} className="rounded-full text-xs h-7">
             Change Status
           </Button>
-          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={loading}>
+          <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={loading} className="rounded-full text-xs h-7">
             Delete
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>✕</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="rounded-full text-xs h-7">✕</Button>
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-hidden">
+      {/* ── Table ────────────────────────────────────────────────────────────── */}
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-card border-b border-border">
-              <tr>
+          <table className="w-full text-sm min-w-[900px]">
+            <thead>
+              <tr className="border-b border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5">
                 <th className="w-10 px-3 py-2.5">
                   <input
                     type="checkbox"
                     checked={displayRows.length > 0 && displayRows.every(r => selected.has(r.id))}
                     onChange={toggleAll}
-                    className="rounded"
+                    className="rounded accent-blue-600"
                   />
                 </th>
+
+                {/* Sortable + filterable columns */}
                 {(([
                   ['client_name',   'Client',       clients],
                   ['platform',      'Platform',     platforms],
@@ -568,49 +607,36 @@ export function ContentTable({
                   ['posting_date',  'Posting Date', null],
                   ['status',        'Status',       ROW_STATUSES],
                 ]) as [string, string, string[] | null][]).map(([field, label, options]) => {
-                  const isActive = sortField === field;
                   const hasFilter = !!colFilters[field];
                   return (
-                    <th key={field}
-                      className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap"
-                    >
+                    <th key={field} className={thCls}>
                       <div className="flex items-center gap-0.5">
-                        {/* Sort trigger */}
                         <button
                           onClick={() => toggleSort(field)}
-                          className="flex items-center gap-1 hover:text-foreground transition-colors group"
+                          className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors group"
                         >
                           {label}
-                          {isActive
-                            ? (sortOrder === 1
-                                ? <ArrowUp className="h-3 w-3 text-primary" />
-                                : <ArrowDown className="h-3 w-3 text-primary" />)
-                            : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                          }
+                          {sortIcon(field)}
                         </button>
-                        {/* Column filter */}
                         {options && (
                           <DropdownMenu>
                             <DropdownMenuTrigger
-                              className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+                              className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-white/50 ${hasFilter ? 'text-blue-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`}
                               title={`Filter by ${label}`}
                             >
                               <ListFilter className="h-3 w-3" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-44">
-                              <DropdownMenuItem
-                                onClick={() => setColFilter(field, '')}
-                                className={!colFilters[field] ? 'font-semibold' : ''}
-                              >
+                              <DropdownMenuItem onClick={() => setColFilter(field, '')} className={!colFilters[field] ? 'font-semibold' : ''}>
                                 All {label.toLowerCase()}s
                               </DropdownMenuItem>
                               {options.map(opt => (
                                 <DropdownMenuItem
                                   key={opt}
                                   onClick={() => setColFilter(field, opt)}
-                                  className={`capitalize ${colFilters[field] === opt ? 'font-semibold text-primary' : ''}`}
+                                  className={`capitalize ${colFilters[field] === opt ? 'font-semibold text-blue-600' : ''}`}
                                 >
-                                  {opt.replace('_', ' ')}
+                                  {opt.replace(/_/g, ' ')}
                                   {colFilters[field] === opt && <span className="ml-auto text-xs">✓</span>}
                                 </DropdownMenuItem>
                               ))}
@@ -621,27 +647,26 @@ export function ContentTable({
                     </th>
                   );
                 })}
-                {/* Tasks column */}
+
+                {/* Tasks */}
                 {(() => {
                   const taskStatusOptions = ['pending', 'in_progress', 'done', 'approved', 'cancelled'];
-                  const isActive = sortField === 'tasks';
                   const hasFilter = !!colFilters['task_status'];
                   return (
-                    <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
+                    <th className={thCls}>
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => toggleSort('tasks')} className="flex items-center gap-1 hover:text-foreground transition-colors group">
-                          Tasks
-                          {isActive ? (sortOrder === 1 ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />}
+                        <button onClick={() => toggleSort('tasks')} className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
+                          Tasks {sortIcon('tasks')}
                         </button>
                         <DropdownMenu>
-                          <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`} title="Filter by task status">
+                          <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-white/50 ${hasFilter ? 'text-blue-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`} title="Filter by task status">
                             <ListFilter className="h-3 w-3" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start" className="w-44">
                             <DropdownMenuItem onClick={() => setColFilter('task_status', '')} className={!colFilters['task_status'] ? 'font-semibold' : ''}>All</DropdownMenuItem>
                             {taskStatusOptions.map(opt => (
-                              <DropdownMenuItem key={opt} onClick={() => setColFilter('task_status', opt)} className={`capitalize ${colFilters['task_status'] === opt ? 'font-semibold text-primary' : ''}`}>
-                                {opt.replace('_', ' ')}{colFilters['task_status'] === opt && <span className="ml-auto text-xs">✓</span>}
+                              <DropdownMenuItem key={opt} onClick={() => setColFilter('task_status', opt)} className={`capitalize ${colFilters['task_status'] === opt ? 'font-semibold text-blue-600' : ''}`}>
+                                {opt.replace(/_/g, ' ')}{colFilters['task_status'] === opt && <span className="ml-auto text-xs">✓</span>}
                               </DropdownMenuItem>
                             ))}
                           </DropdownMenuContent>
@@ -650,26 +675,25 @@ export function ContentTable({
                     </th>
                   );
                 })()}
-                {/* Designer column */}
+
+                {/* Employee */}
                 {(() => {
-                  const isActive = sortField === 'assignee';
                   const hasFilter = !!colFilters['assignee'];
                   return (
-                    <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
+                    <th className={thCls}>
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => toggleSort('assignee')} className="flex items-center gap-1 hover:text-foreground transition-colors group">
-                          Employee
-                          {isActive ? (sortOrder === 1 ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />}
+                        <button onClick={() => toggleSort('assignee')} className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
+                          Employee {sortIcon('assignee')}
                         </button>
                         {assigneeOptions.length > 0 && (
                           <DropdownMenu>
-                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`} title="Filter by employee">
+                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-white/50 ${hasFilter ? 'text-blue-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`} title="Filter by employee">
                               <ListFilter className="h-3 w-3" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48">
                               <DropdownMenuItem onClick={() => setColFilter('assignee', '')} className={!colFilters['assignee'] ? 'font-semibold' : ''}>All</DropdownMenuItem>
                               {assigneeOptions.map(([id, name]) => (
-                                <DropdownMenuItem key={id} onClick={() => setColFilter('assignee', id)} className={colFilters['assignee'] === id ? 'font-semibold text-primary' : ''}>
+                                <DropdownMenuItem key={id} onClick={() => setColFilter('assignee', id)} className={colFilters['assignee'] === id ? 'font-semibold text-blue-600' : ''}>
                                   {name}{colFilters['assignee'] === id && <span className="ml-auto text-xs">✓</span>}
                                 </DropdownMenuItem>
                               ))}
@@ -680,30 +704,27 @@ export function ContentTable({
                     </th>
                   );
                 })()}
-                {/* SMO column */}
-                <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
-                  SMO
-                </th>
-                {/* Source column */}
+
+                <th className={thCls}>SMO</th>
+
+                {/* Source */}
                 {(() => {
-                  const isActive = sortField === 'source';
                   const hasFilter = !!colFilters['source'];
                   return (
-                    <th className="px-3 py-2.5 text-left text-[0.7rem] font-semibold tracking-wide uppercase text-muted-foreground whitespace-nowrap">
+                    <th className={thCls}>
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => toggleSort('source')} className="flex items-center gap-1 hover:text-foreground transition-colors group">
-                          Source
-                          {isActive ? (sortOrder === 1 ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />) : <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />}
+                        <button onClick={() => toggleSort('source')} className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
+                          Source {sortIcon('source')}
                         </button>
                         {sourceOptions.length > 1 && (
                           <DropdownMenu>
-                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-muted ${hasFilter ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`} title="Filter by source">
+                            <DropdownMenuTrigger className={`ml-0.5 rounded p-0.5 transition-colors hover:bg-white/50 ${hasFilter ? 'text-blue-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`} title="Filter by source">
                               <ListFilter className="h-3 w-3" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-40">
                               <DropdownMenuItem onClick={() => setColFilter('source', '')} className={!colFilters['source'] ? 'font-semibold' : ''}>All</DropdownMenuItem>
                               {sourceOptions.map(opt => (
-                                <DropdownMenuItem key={opt} onClick={() => setColFilter('source', opt)} className={`capitalize ${colFilters['source'] === opt ? 'font-semibold text-primary' : ''}`}>
+                                <DropdownMenuItem key={opt} onClick={() => setColFilter('source', opt)} className={`capitalize ${colFilters['source'] === opt ? 'font-semibold text-blue-600' : ''}`}>
                                   {opt}{colFilters['source'] === opt && <span className="ml-auto text-xs">✓</span>}
                                 </DropdownMenuItem>
                               ))}
@@ -716,56 +737,67 @@ export function ContentTable({
                 })()}
               </tr>
             </thead>
-            <tbody className="divide-y">
+
+            <tbody>
               {displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={10} className="px-4 py-14 text-center text-sm text-slate-400 dark:text-slate-500">
                     No content rows found.
                   </td>
                 </tr>
-              ) : displayRows.map(row => (
+              ) : displayRows.map((row, rowIdx) => (
                 <tr
                   key={row.id}
-                  className={`hover:bg-muted/30 transition-colors ${selected.has(row.id) ? 'bg-primary/5' : ''}`}
+                  className={cn(
+                    'transition-colors text-[13px]',
+                    'border-b border-white/20 dark:border-white/5 last:border-0',
+                    selected.has(row.id)
+                      ? 'bg-blue-500/8 dark:bg-blue-400/10'
+                      : rowIdx % 2 === 0
+                        ? 'hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
+                        : 'bg-white/10 dark:bg-white/[0.02] hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
+                  )}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <input
                       type="checkbox"
                       checked={selected.has(row.id)}
                       onChange={() => toggleOne(row.id)}
-                      className="rounded"
+                      className="rounded accent-blue-600"
                     />
                   </td>
-                  <td className="px-3 py-2 font-medium">{row.client_name ?? '—'}</td>
-                  <td className="px-3 py-2 capitalize">{row.platform}</td>
-                  <td className="px-3 py-2 capitalize">{row.content_type}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5 font-bold text-blue-700 dark:text-blue-400">
+                    {row.client_name ?? '—'}
+                  </td>
+                  <td className="px-3 py-2.5 capitalize text-slate-600 dark:text-slate-300">{row.platform}</td>
+                  <td className="px-3 py-2.5 capitalize text-slate-700 dark:text-slate-200">{row.content_type}</td>
+                  <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">
                     {new Date(row.posting_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <InlineStatusSelect rowId={row.id} currentStatus={row.status} />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     {row.tasks.length === 0 && !row.auto_create_tasks ? (
-                      <span className="text-xs text-amber-600 font-medium">Pending</span>
+                      <span className="text-[11px] text-amber-600 font-semibold">Pending</span>
                     ) : (
                       <TaskBadge tasks={row.tasks} />
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <AssignTaskCell
                       task={row.tasks.find(t => t.task_type === 'design')}
                       pool={teamMembers.filter(m => m.role === 'designer')}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <AssignTaskCell
                       task={row.tasks.find(t => t.task_type === 'post')}
                       pool={teamMembers.filter(m => m.role === 'smo')}
                     />
                   </td>
-                  <td className="px-3 py-2">
-                    <Badge variant="outline" className="text-xs capitalize">{row.source}</Badge>
+                  <td className="px-3 py-2.5">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 capitalize font-medium">{row.source}</span>
                   </td>
                 </tr>
               ))}
@@ -776,7 +808,7 @@ export function ContentTable({
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
 
-      {/* AI Schedule Analysis dialog */}
+      {/* ── AI Schedule Analysis dialog ──────────────────────────────────────── */}
       <Dialog open={aiOpen} onOpenChange={setAiOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -881,7 +913,7 @@ export function ContentTable({
         </DialogContent>
       </Dialog>
 
-      {/* Change status dialog */}
+      {/* ── Change status dialog ─────────────────────────────────────────────── */}
       <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Change Status</DialogTitle></DialogHeader>
@@ -889,7 +921,7 @@ export function ContentTable({
             Update status for {selected.size} selected row{selected.size !== 1 ? 's' : ''}.
           </p>
           <Select value={bulkStatus || NONE} onValueChange={v => setBulkStatus(!v || v === NONE ? '' : v)}>
-            <SelectTrigger><SelectValue placeholder="Select status…" /></SelectTrigger>
+            <SelectTrigger><span className="truncate">{bulkStatus || 'Select status…'}</span></SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE}>— select —</SelectItem>
               {ROW_STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
@@ -902,7 +934,7 @@ export function ContentTable({
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm dialog */}
+      {/* ── Delete confirm dialog ─────────────────────────────────────────────── */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Delete {selected.size} row{selected.size !== 1 ? 's' : ''}?</DialogTitle></DialogHeader>

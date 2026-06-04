@@ -581,12 +581,59 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply text-foreground font-sans;
     font-family: var(--font-sans), 'Poppins', system-ui, sans-serif;
+    background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 60%, #E0E7FF 100%);
+    min-height: 100vh;
   }
   html {
     @apply font-sans;
   }
+  .dark body {
+    background: oklch(0.21 0.021 247);
+  }
+}
+
+/* ─── Glassmorphic surfaces ──────────────────────────────── */
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+}
+.dark .glass-sidebar {
+  background: rgba(20, 22, 35, 0.85);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glass-topbar {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.dark .glass-topbar {
+  background: rgba(20, 22, 35, 0.9);
+}
+.glass-panel {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.2) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+.dark .glass-panel {
+  background: linear-gradient(135deg, rgba(20, 22, 35, 0.7) 0%, rgba(20, 22, 35, 0.45) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+[data-slot="dialog-content"].glass-dialog {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.97) 0%, rgba(219, 234, 254, 0.95) 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-color: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+.dark [data-slot="dialog-content"].glass-dialog {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 22, 35, 0.9) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5) !important;
 }
 
 @layer components {

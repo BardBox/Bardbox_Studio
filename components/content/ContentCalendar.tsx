@@ -2,20 +2,18 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Eye, Plus } from 'lucide-react';
+import { Eye, Plus, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { PipelineTask, TaskStatus } from '@/lib/types';
 import { PressureBadge } from '@/components/shared/PressureBadge';
 import { CreateContentDialog } from '@/components/content/CreateContentDialog';
 import { ImportDialog } from '@/components/content/ImportDialog';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import {
   Dialog,
@@ -40,27 +38,24 @@ interface Props {
   view?: 'calendar' | 'employees';
 }
 
-const PLATFORMS: Record<string, string> = {
-  instagram: 'IG',
-  linkedin: 'LI',
-  twitter: 'TW',
-  facebook: 'FB',
-  youtube: 'YT',
-  tiktok: 'TK',
+// ── Status styles ────────────────────────────────────────────────────────────
+
+const TASK_STATUS_GLASS: Record<string, string> = {
+  todo:          'bg-white/30 border-white/60 text-slate-600 dark:bg-white/10 dark:border-white/20 dark:text-slate-300',
+  working_on_it: 'bg-blue-500/15 border-blue-400/40 text-blue-700 dark:bg-blue-400/20 dark:border-blue-400/30 dark:text-blue-300',
+  submitted:     'bg-amber-500/15 border-amber-400/40 text-amber-700 dark:bg-amber-400/20 dark:border-amber-400/30 dark:text-amber-300',
+  approved:      'bg-emerald-500/15 border-emerald-400/40 text-emerald-700 dark:bg-emerald-400/20 dark:border-emerald-400/30 dark:text-emerald-300',
+  done:          'bg-emerald-600/20 border-emerald-500/40 text-emerald-800 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-200',
+  blocked:       'bg-red-500/15 border-red-400/40 text-red-700 dark:bg-red-400/20 dark:border-red-400/30 dark:text-red-300',
 };
 
-function platformAbbr(p: string | null | undefined) {
-  if (!p) return '–';
-  return PLATFORMS[p.toLowerCase()] ?? p.slice(0, 2).toUpperCase();
-}
-
-const TASK_STATUS_COLORS: Record<string, string> = {
-  todo: 'bg-gray-100 text-gray-700',
-  working_on_it: 'bg-blue-100 text-blue-700',
-  submitted: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-emerald-100 text-emerald-700',
-  done: 'bg-emerald-200 text-emerald-800',
-  blocked: 'bg-red-100 text-red-700',
+const TASK_STATUS_DOTS: Record<string, string> = {
+  todo:          'bg-gray-400',
+  working_on_it: 'bg-blue-500',
+  submitted:     'bg-amber-500',
+  approved:      'bg-emerald-500',
+  done:          'bg-emerald-600',
+  blocked:       'bg-red-500',
 };
 
 const ALL_TASK_STATUSES: TaskStatus[] = ['todo', 'working_on_it', 'submitted', 'approved', 'done', 'blocked'];
@@ -81,14 +76,16 @@ function getExcludedDays(year: number, month: number): Set<number> {
   let satCount = 0;
   for (let d = 1; d <= daysInMonth; d++) {
     const dow = new Date(year, month - 1, d).getDay();
-    if (dow === 0) excluded.add(d);          // all Sundays
+    if (dow === 0) excluded.add(d);
     if (dow === 6) {
       satCount++;
-      if (satCount === 1 || satCount === 3) excluded.add(d); // 1st & 3rd Saturday
+      if (satCount === 1 || satCount === 3) excluded.add(d);
     }
   }
   return excluded;
 }
+
+// ── Task Detail Dialog ────────────────────────────────────────────────────────
 
 function TaskDetailDialog({
   task,
@@ -121,7 +118,6 @@ function TaskDetailDialog({
     }
   }
 
-  const cls = TASK_STATUS_COLORS[task.task_status] ?? 'bg-muted text-muted-foreground';
   const accentColor = PRESSURE_ACCENT[task.pressure_level] ?? 'bg-gray-300';
 
   const fmtDate = (d: string, isTimestamp = false) =>
@@ -131,14 +127,11 @@ function TaskDetailDialog({
 
   return (
     <Dialog open={!!task} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden gap-0">
-        {/* Pressure colour stripe at top */}
+      <DialogContent variant="glass" className="sm:max-w-md p-0 overflow-hidden gap-0">
         <div className={`h-1 w-full shrink-0 ${accentColor}`} />
 
         <div className="px-6 pt-5 pb-6 space-y-4">
-          {/* Header */}
           <DialogHeader className="space-y-1.5 pr-6">
-            {/* Date badge — prominent, first thing read */}
             <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
               <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold tracking-wide">
                 {new Date(task.posting_date + 'T00:00:00').toLocaleDateString('en-IN', {
@@ -174,8 +167,7 @@ function TaskDetailDialog({
             </p>
           </DialogHeader>
 
-          {/* Meta card */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-muted/40 px-4 py-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-white/40 dark:bg-white/5 border border-white/50 dark:border-white/10 px-4 py-3">
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Submit by</p>
               <p className="text-sm font-medium">{fmtDate(task.internal_deadline, true)}</p>
@@ -208,7 +200,6 @@ function TaskDetailDialog({
             </div>
           </div>
 
-          {/* Brief */}
           {task.brief && (
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Brief</p>
@@ -216,7 +207,6 @@ function TaskDetailDialog({
             </div>
           )}
 
-          {/* Design link */}
           {task.design_url && (
             <a
               href={task.design_url}
@@ -228,7 +218,6 @@ function TaskDetailDialog({
             </a>
           )}
 
-          {/* Rejection notes */}
           {task.rejection_notes && (
             <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2.5 dark:bg-red-950/30 dark:border-red-900">
               <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-0.5">Rejection note</p>
@@ -236,11 +225,11 @@ function TaskDetailDialog({
             </div>
           )}
 
-          {/* Status */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</p>
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${cls}`}>
+              <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border ${TASK_STATUS_GLASS[task.task_status] ?? TASK_STATUS_GLASS.todo}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${TASK_STATUS_DOTS[task.task_status] ?? 'bg-gray-400'}`} />
                 {task.task_status.replace(/_/g, ' ')}
               </span>
             </div>
@@ -250,21 +239,23 @@ function TaskDetailDialog({
                   key={s}
                   disabled={loading}
                   onClick={() => changeStatus(s)}
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium border border-transparent hover:border-current cursor-pointer transition-opacity disabled:opacity-50 ${TASK_STATUS_COLORS[s]}`}
+                  className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border cursor-pointer transition-all disabled:opacity-50 hover:brightness-110 ${TASK_STATUS_GLASS[s]}`}
                 >
+                  <div className={`w-1.5 h-1.5 rounded-full ${TASK_STATUS_DOTS[s] ?? 'bg-gray-400'}`} />
                   {s.replace(/_/g, ' ')}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* AI assistant */}
           <TaskAiChat task_id={task.task_id} task_type={task.task_type} />
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+// ── Main Calendar ─────────────────────────────────────────────────────────────
 
 export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, teamMembers, activeClient, activeAssignee, holidays = [], view = 'calendar' }: Props) {
   const router = useRouter();
@@ -306,25 +297,21 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
     router.refresh();
   }
 
-  // Build month grid
   const firstOfMonth = new Date(year, month - 1, 1);
   const daysInMonth = new Date(year, month, 0).getDate();
   const startOffset = firstOfMonth.getDay();
-  // Today in IST
+
   const nowUtc = new Date();
   const istNow = new Date(nowUtc.getTime() + (5 * 60 + 30) * 60_000);
   const today = `${istNow.getUTCFullYear()}-${String(istNow.getUTCMonth() + 1).padStart(2, '0')}-${String(istNow.getUTCDate()).padStart(2, '0')}`;
 
   const excludedDays = getExcludedDays(year, month);
 
-  // Build holiday map: "YYYY-MM-DD" → name
   const holidayMap = new Map<string, string>();
   for (const h of holidays) holidayMap.set(h.holiday_date.slice(0, 10), h.name);
 
   const tasksByDate = new Map<string, PipelineTask[]>();
   for (const task of tasks) {
-    // Employees view: group by internal_deadline (when work is due)
-    // Calendar view: group by posting_date (when it publishes)
     const key = view === 'employees' && task.internal_deadline
       ? task.internal_deadline.slice(0, 10)
       : task.posting_date.slice(0, 10);
@@ -341,29 +328,16 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navMonth(-1)}
-            className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground"
-          >
-            ‹
-          </button>
-          <h2 className="text-xl font-bold min-w-[180px] text-center">{monthLabel}</h2>
-          <button
-            onClick={() => navMonth(1)}
-            className="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground"
-          >
-            ›
-          </button>
-        </div>
 
+      {/* ── Filter / control bar ──────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+
+        {/* Left: filter pills */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Client filter */}
           <Select value={activeClient ?? '__all__'} onValueChange={v => pushFilter('client', v === '__all__' ? null : v)}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <span className={cn('flex-1 text-left truncate text-xs', !activeClient && 'text-muted-foreground')}>
+            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[130px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+              <span className={cn('flex-1 text-left truncate', !activeClient && 'text-slate-500 dark:text-slate-400')}>
                 {activeClient ?? 'All clients'}
               </span>
             </SelectTrigger>
@@ -373,10 +347,10 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             </SelectContent>
           </Select>
 
-          {/* Team member filter */}
+          {/* Team filter */}
           <Select value={activeAssignee ?? '__all__'} onValueChange={v => pushFilter('assignee', v === '__all__' ? null : v)}>
-            <SelectTrigger className="h-8 text-xs w-52">
-              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-muted-foreground')}>
+            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[130px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-slate-500 dark:text-slate-400')}>
                 {activeAssignee ?? (view === 'employees' ? 'All employees' : 'All team')}
               </span>
             </SelectTrigger>
@@ -404,28 +378,77 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             </SelectContent>
           </Select>
 
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          {/* Import */}
+          <button
+            onClick={() => setImportOpen(true)}
+            className="h-9 flex items-center gap-2 px-4 rounded-full bg-white/40 backdrop-blur-sm border border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 text-xs font-semibold"
+          >
+            <Upload className="size-3.5" />
             Import
-          </Button>
-          <Button size="sm" onClick={() => { setCreateDate(null); setCreateOpen(true); }}>
-            + New Content
-          </Button>
+          </button>
         </div>
+
+        {/* Center: month navigator pill */}
+        <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm border border-white/50 rounded-full px-2 py-1 shadow-sm">
+          <button
+            onClick={() => navMonth(-1)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="font-bold text-sm text-slate-800 dark:text-slate-100 min-w-[150px] text-center px-1 select-none">
+            {monthLabel}
+          </span>
+          <button
+            onClick={() => navMonth(1)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+
+        {/* Right: New Content CTA */}
+        <button
+          onClick={() => { setCreateDate(null); setCreateOpen(true); }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-full shadow-lg shadow-blue-500/25 active:scale-95 transition-all duration-200"
+        >
+          <Plus className="size-4" />
+          New Content
+        </button>
       </div>
 
-      {/* Calendar grid */}
-      <div className="rounded-xl border bg-background overflow-hidden">
-        <div className="grid grid-cols-7 border-b">
-          {WEEKDAYS.map((wd) => (
-            <div key={wd} className="py-2 text-center text-xs font-medium text-muted-foreground">
+      {/* ── Calendar glass grid ──────────────────────────────────────────────── */}
+      <div className="glass-panel rounded-2xl overflow-hidden shadow-xl">
+
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-white/30 bg-white/20 dark:bg-white/5">
+          {WEEKDAYS.map((wd, i) => (
+            <div
+              key={wd}
+              className={cn(
+                'py-3 text-center text-[10px] font-bold uppercase tracking-widest',
+                (i === 0 || i === 6)
+                  ? 'text-slate-400 dark:text-slate-600'
+                  : 'text-slate-600 dark:text-slate-300'
+              )}
+            >
               {wd}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 divide-x divide-y">
+        {/* Grid cells */}
+        <div className="grid grid-cols-7">
           {cells.map((day, idx) => {
-            if (!day) return <div key={`pad-${idx}`} className="min-h-[110px] bg-muted/10" />;
+            // Padding cell (prev month)
+            if (!day) {
+              return (
+                <div
+                  key={`pad-${idx}`}
+                  className="min-h-[140px] bg-black/[0.03] dark:bg-black/20 border-r border-b border-white/25 dark:border-white/10"
+                />
+              );
+            }
 
             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayTasks = tasksByDate.get(dateStr) ?? [];
@@ -434,7 +457,6 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             const holidayName = holidayMap.get(dateStr) ?? null;
             const isExcluded = excludedDays.has(day) || !!holidayName;
 
-            // Pair design + post tasks for the same content row into one card
             const contentGroups = new Map<number, { design?: PipelineTask; post?: PipelineTask }>();
             for (const t of dayTasks) {
               if (!contentGroups.has(t.content_row_id)) contentGroups.set(t.content_row_id, {});
@@ -447,31 +469,42 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
             return (
               <div
                 key={dateStr}
-                className={`min-h-[110px] p-1.5 flex flex-col gap-1 relative group ${
+                className={cn(
+                  'min-h-[140px] p-2 flex flex-col gap-1 relative group',
+                  'border-r border-b border-white/25 dark:border-white/10',
                   isExcluded
-                    ? 'bg-slate-100/80 dark:bg-slate-800/40'
-                    : isToday ? 'bg-primary/5' : isPast ? 'bg-muted/20' : ''
-                }`}
+                    ? 'bg-black/[0.04] dark:bg-black/20'
+                    : isToday
+                      ? 'bg-blue-500/5'
+                      : isPast
+                        ? 'bg-black/[0.01]'
+                        : ''
+                )}
               >
-                <div className="flex items-center justify-between">
+                {/* Date row */}
+                <div className="flex items-start justify-between mb-0.5">
                   <span
-                    className={`text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full ${
+                    className={cn(
+                      'text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full shrink-0',
                       isExcluded
-                        ? 'text-slate-400'
-                        : isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
-                    }`}
+                        ? 'text-slate-400 dark:text-slate-600 opacity-60'
+                        : isToday
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'text-slate-600 dark:text-slate-400'
+                    )}
                   >
                     {day}
                   </span>
+
                   {isExcluded ? (
-                    <span className="text-[9px] text-slate-400 font-medium truncate max-w-[70px]" title={holidayName ?? 'Off'}>
-                      {holidayName ?? 'Off'}
+                    <span className="text-[9px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest opacity-60 truncate max-w-[70px] mt-0.5" title={holidayName ?? 'Off'}>
+                      {holidayName ? holidayName.slice(0, 6) : 'Off'}
                     </span>
                   ) : (
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
                       {dayTasks.length > 0 && (
                         <button
-                          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
                           onClick={() => setDayViewDate(dateStr)}
                           title="View all tasks"
                         >
@@ -479,7 +512,7 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
                         </button>
                       )}
                       <button
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
                         onClick={() => { setCreateDate(dateStr); setCreateOpen(true); }}
                         title="Add content"
                       >
@@ -489,42 +522,32 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
                   )}
                 </div>
 
-                {/* Content cards — one per content row, showing designer + SMO */}
+                {/* Task chips — glass pills */}
                 {groupEntries.slice(0, 3).map(([rowId, g]) => {
                   const primary = g.design ?? g.post!;
                   const cardStatus = g.design?.task_status ?? g.post?.task_status ?? 'todo';
-                  const cls = TASK_STATUS_COLORS[cardStatus] ?? 'bg-gray-100 text-gray-700';
                   return (
                     <button
                       key={rowId}
                       onClick={() => setSelectedTask(primary)}
-                      className={`text-xs rounded px-2 py-1.5 text-left w-full cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
                       title={`${primary.content_type} · ${primary.client_name} | Design: ${g.design?.assignee_name ?? '—'} · Post: ${g.post?.assignee_name ?? '—'}`}
+                      className={cn(
+                        'text-[11px] rounded-full px-2.5 py-1 text-left w-full cursor-pointer',
+                        'hover:brightness-110 transition-all border flex items-center gap-1.5 leading-none',
+                        TASK_STATUS_GLASS[cardStatus] ?? TASK_STATUS_GLASS.todo
+                      )}
                     >
-                      <div className="font-semibold capitalize leading-tight truncate">
-                        {primary.content_type}
-                        <span className="ml-1 font-normal opacity-50 text-[10px] normal-case">{primary.client_name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] leading-tight">
-                        {g.design && (
-                          <span className="text-blue-600 truncate">
-                            {g.design.assignee_name?.split(' ')[0] ?? '—'}
-                          </span>
-                        )}
-                        {g.design && g.post && <span className="opacity-30 shrink-0">·</span>}
-                        {g.post && (
-                          <span className="text-violet-600 truncate">
-                            {g.post.assignee_name?.split(' ')[0] ?? '—'}
-                          </span>
-                        )}
-                      </div>
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${TASK_STATUS_DOTS[cardStatus] ?? 'bg-gray-400'}`} />
+                      <span className="font-bold capitalize truncate">{primary.content_type}</span>
+                      <span className="opacity-50 normal-case truncate text-[10px] shrink min-w-0">{primary.client_name}</span>
                     </button>
                   );
                 })}
+
                 {groupEntries.length > 3 && (
                   <button
                     onClick={() => setDayViewDate(dateStr)}
-                    className="text-xs text-muted-foreground hover:text-foreground px-1 text-left hover:underline transition-colors"
+                    className="text-[11px] text-blue-600 dark:text-blue-400 font-bold px-2 text-left hover:underline transition-colors"
                   >
                     +{groupEntries.length - 3} more
                   </button>
@@ -539,21 +562,27 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground items-center">
-        {Object.entries(TASK_STATUS_COLORS).map(([s, cls]) => (
-          <span key={s} className={`px-2 py-0.5 rounded capitalize ${cls}`}>{s.replace('_', ' ')}</span>
+      {/* ── Legend ──────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {Object.entries(TASK_STATUS_GLASS).map(([s, cls]) => (
+          <span
+            key={s}
+            className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold', cls)}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${TASK_STATUS_DOTS[s] ?? 'bg-gray-400'}`} />
+            {s.replace(/_/g, ' ')}
+          </span>
         ))}
-        <span className="text-muted-foreground">·</span>
-        <span className="text-blue-600 font-medium">Blue name = Designer</span>
-        <span className="text-violet-600 font-medium">Violet name = SMO</span>
-        <span className="text-muted-foreground italic">· Click chip to update status</span>
+        <span className="text-slate-300 dark:text-slate-600 mx-0.5">·</span>
+        <span className="text-blue-600 dark:text-blue-400 text-[11px] font-semibold">Blue = Designer</span>
+        <span className="text-violet-600 dark:text-violet-400 text-[11px] font-semibold">Violet = SMO</span>
+        <span className="text-slate-400 dark:text-slate-500 text-[11px] italic">· Hover chip for names</span>
       </div>
 
-      {/* Day view dialog — shows all tasks for a date */}
+      {/* ── Day-view dialog ──────────────────────────────────────────────────── */}
       <Dialog open={!!dayViewDate} onOpenChange={open => !open && setDayViewDate(null)}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
-          <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
+        <DialogContent variant="glass" className="sm:max-w-lg max-h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-white/30 dark:border-white/10 shrink-0">
             <DialogTitle className="text-base">
               {dayViewDate && new Date(dayViewDate + 'T00:00:00').toLocaleDateString('en-IN', {
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -583,24 +612,25 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
               }
               return [...groups.entries()].map(([rowId, g]) => {
                 const primary = g.design ?? g.post!;
-                const cls = TASK_STATUS_COLORS[primary.task_status] ?? 'bg-gray-100 text-gray-700';
+                const cls = TASK_STATUS_GLASS[primary.task_status] ?? TASK_STATUS_GLASS.todo;
                 return (
                   <button
                     key={rowId}
                     onClick={() => { setDayViewDate(null); setSelectedTask(primary); }}
-                    className={`w-full text-left rounded-lg px-3 py-2.5 text-sm cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
+                    className={cn(
+                      'w-full text-left rounded-xl px-3 py-2.5 text-sm cursor-pointer',
+                      'hover:brightness-105 transition-all border',
+                      cls
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${TASK_STATUS_DOTS[primary.task_status] ?? 'bg-gray-400'}`} />
                       <span className="font-semibold capitalize">{primary.content_type}</span>
-                      <span className="text-[10px] opacity-60">{primary.client_name}</span>
+                      <span className="text-[10px] opacity-60 ml-auto">{primary.client_name}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-[11px]">
-                      {g.design && (
-                        <span className="text-blue-600">✎ {g.design.assignee_name ?? 'Unassigned'}</span>
-                      )}
-                      {g.post && (
-                        <span className="text-violet-600">↗ {g.post.assignee_name ?? 'Unassigned'}</span>
-                      )}
+                    <div className="flex items-center gap-3 mt-1 text-[11px] pl-4">
+                      {g.design && <span className="text-blue-600 dark:text-blue-400">✎ {g.design.assignee_name ?? 'Unassigned'}</span>}
+                      {g.post && <span className="text-violet-600 dark:text-violet-400">↗ {g.post.assignee_name ?? 'Unassigned'}</span>}
                       <span className="ml-auto opacity-50 capitalize">{primary.task_status.replace(/_/g, ' ')}</span>
                     </div>
                   </button>
@@ -608,7 +638,7 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
               });
             })()}
           </div>
-          <div className="px-5 py-3 border-t shrink-0">
+          <div className="px-5 py-3 border-t border-white/30 dark:border-white/10 shrink-0">
             <button
               onClick={() => { setDayViewDate(null); setCreateDate(dayViewDate); setCreateOpen(true); }}
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"

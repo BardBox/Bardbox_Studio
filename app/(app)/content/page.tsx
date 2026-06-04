@@ -9,8 +9,10 @@ import Link from 'next/link';
 type View = 'table' | 'calendar' | 'employees';
 
 function tabClass(active: boolean) {
-  return `text-xs px-3 py-1.5 rounded-md transition-colors ${
-    active ? 'bg-secondary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+  return `text-xs px-4 py-1.5 rounded-full font-semibold transition-all duration-200 ${
+    active
+      ? 'bg-blue-500/15 text-blue-700 dark:bg-blue-400/20 dark:text-blue-300'
+      : 'text-slate-500 hover:text-slate-800 hover:bg-white/50 dark:text-slate-400 dark:hover:text-slate-200'
   }`;
 }
 
@@ -45,7 +47,7 @@ export default async function ContentPage({
 
   // Shared tab bar links
   const tabs = (
-    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
+    <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm border border-white/50 dark:bg-white/10 dark:border-white/20 rounded-full p-1">
       <Link
         href={`/content?view=table&month=${activeMonth}${client ? `&client=${client}` : ''}${platform ? `&platform=${platform}` : ''}${assignee ? `&assignee=${assignee}` : ''}`}
         className={tabClass(activeView === 'table')}
@@ -113,8 +115,11 @@ export default async function ContentPage({
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Content</h1>
+        <div className="glass-panel rounded-xl px-5 py-3.5 flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Content Operations</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-0.5">{activeMonth}</p>
+          </div>
           <div className="flex items-center gap-2">
             {tabs}
             <RedistributeButton month={activeMonth} />
