@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Eye, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { PipelineTask, TaskStatus } from '@/lib/types';
@@ -271,6 +272,7 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
   const [createDate, setCreateDate] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<PipelineTask | null>(null);
+  const [dayViewDate, setDayViewDate] = useState<string | null>(null);
   const [tasks, setTasks] = useState(initialTasks);
 
   const [year, month] = currentMonth.split('-').map(Number);
@@ -466,13 +468,24 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
                       {holidayName ?? 'Off'}
                     </span>
                   ) : (
-                    <button
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground text-base leading-none transition-opacity"
-                      onClick={() => { setCreateDate(dateStr); setCreateOpen(true); }}
-                      title="Add content"
-                    >
-                      +
-                    </button>
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+                      {dayTasks.length > 0 && (
+                        <button
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          onClick={() => setDayViewDate(dateStr)}
+                          title="View all tasks"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button
+                        className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        onClick={() => { setCreateDate(dateStr); setCreateOpen(true); }}
+                        title="Add content"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -509,9 +522,12 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
                   );
                 })}
                 {groupEntries.length > 3 && (
-                  <div className="text-xs text-muted-foreground px-1">
+                  <button
+                    onClick={() => setDayViewDate(dateStr)}
+                    className="text-xs text-muted-foreground hover:text-foreground px-1 text-left hover:underline transition-colors"
+                  >
                     +{groupEntries.length - 3} more
-                  </div>
+                  </button>
                 )}
 
                 {dayTasks.some((t) => t.pressure_level === 'overdue') && (
@@ -533,6 +549,75 @@ export function ContentCalendar({ tasks: initialTasks, currentMonth, clients, te
         <span className="text-violet-600 font-medium">Violet name = SMO</span>
         <span className="text-muted-foreground italic">· Click chip to update status</span>
       </div>
+
+      {/* Day view dialog — shows all tasks for a date */}
+      <Dialog open={!!dayViewDate} onOpenChange={open => !open && setDayViewDate(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
+            <DialogTitle className="text-base">
+              {dayViewDate && new Date(dayViewDate + 'T00:00:00').toLocaleDateString('en-IN', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+              })}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {dayViewDate && (() => {
+                const groups = [...(tasksByDate.get(dayViewDate) ?? [])].reduce((m, t) => {
+                  if (!m.has(t.content_row_id)) m.set(t.content_row_id, {});
+                  const g = m.get(t.content_row_id)!;
+                  if (t.task_type === 'design') (g as Record<string, PipelineTask>).design = t;
+                  else (g as Record<string, PipelineTask>).post = t;
+                  return m;
+                }, new Map<number, Record<string, PipelineTask>>());
+                return `${groups.size} content item${groups.size !== 1 ? 's' : ''}`;
+              })()}
+            </p>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-3 py-3 space-y-1.5">
+            {dayViewDate && (() => {
+              const dayT = tasksByDate.get(dayViewDate) ?? [];
+              const groups = new Map<number, { design?: PipelineTask; post?: PipelineTask }>();
+              for (const t of dayT) {
+                if (!groups.has(t.content_row_id)) groups.set(t.content_row_id, {});
+                const g = groups.get(t.content_row_id)!;
+                if (t.task_type === 'design') g.design = t; else g.post = t;
+              }
+              return [...groups.entries()].map(([rowId, g]) => {
+                const primary = g.design ?? g.post!;
+                const cls = TASK_STATUS_COLORS[primary.task_status] ?? 'bg-gray-100 text-gray-700';
+                return (
+                  <button
+                    key={rowId}
+                    onClick={() => { setDayViewDate(null); setSelectedTask(primary); }}
+                    className={`w-full text-left rounded-lg px-3 py-2.5 text-sm cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold capitalize">{primary.content_type}</span>
+                      <span className="text-[10px] opacity-60">{primary.client_name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-[11px]">
+                      {g.design && (
+                        <span className="text-blue-600">✎ {g.design.assignee_name ?? 'Unassigned'}</span>
+                      )}
+                      {g.post && (
+                        <span className="text-violet-600">↗ {g.post.assignee_name ?? 'Unassigned'}</span>
+                      )}
+                      <span className="ml-auto opacity-50 capitalize">{primary.task_status.replace(/_/g, ' ')}</span>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+          <div className="px-5 py-3 border-t shrink-0">
+            <button
+              onClick={() => { setDayViewDate(null); setCreateDate(dayViewDate); setCreateOpen(true); }}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-3 h-3" /> Add content for this day
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <TaskDetailDialog
         task={selectedTask}
