@@ -425,7 +425,7 @@ export function ImportDialog({ open, onClose }: Props) {
                       <span className="text-muted-foreground/40 text-xs shrink-0">→</span>
                       <Select
                         value={tabClientMap[name] ?? ''}
-                        onValueChange={v => setTabClientMap(prev => ({ ...prev, [name]: v }))}
+                        onValueChange={v => setTabClientMap(prev => ({ ...prev, [name]: v } as Record<string, string>))}
                       >
                         <SelectTrigger className="flex-1 h-8 text-sm">
                           <SelectValue placeholder="Select client…" />
