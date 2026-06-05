@@ -55,30 +55,64 @@ export function CalendarGrid({ initialTasks }: CalendarGridProps) {
     if (month === 11) { setYear(y => y + 1); setMonth(0); }
     else setMonth(m => m + 1);
   }
+  function goToday() {
+    setYear(today.getFullYear());
+    setMonth(today.getMonth());
+  }
 
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const monthLabel = new Date(year, month).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{monthLabel}</h2>
-        <div className="flex gap-2">
-          <button onClick={prev} className="px-3 py-1 text-sm border rounded-md hover:bg-muted">‹</button>
-          <button onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }}
-            className="px-3 py-1 text-sm border rounded-md hover:bg-muted">Today</button>
-          <button onClick={next} className="px-3 py-1 text-sm border rounded-md hover:bg-muted">›</button>
+    <div className="space-y-4">
+      {/* Month nav */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-2xl font-bold text-blue-600">{monthLabel}</h2>
+          {isCurrentMonth && (
+            <span className="px-3 py-1 bg-blue-500/10 text-blue-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
+              Active Cycle
+            </span>
+          )}
+        </div>
+        <div className="flex items-center bg-white/40 backdrop-blur-sm border border-white/50 rounded-full p-1.5 gap-0.5">
+          <button
+            onClick={prev}
+            className="px-4 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:bg-white/60 transition-colors"
+          >
+            Prev
+          </button>
+          <button
+            onClick={goToday}
+            className={`px-6 py-1.5 rounded-full text-sm font-bold transition-all ${
+              isCurrentMonth
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-slate-600 hover:bg-white/60'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={next}
+            className="px-4 py-1.5 rounded-full text-sm font-semibold text-slate-600 hover:bg-white/60 transition-colors"
+          >
+            Next
+          </button>
         </div>
       </div>
 
-      <div className="border border-b-0 border-r-0 rounded-t-lg overflow-hidden">
-        <div className="grid grid-cols-7 bg-muted/40">
+      {/* Calendar */}
+      <div className="glass-panel rounded-3xl overflow-hidden shadow-xl border border-white/60">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-white/40 bg-white/10">
           {DAYS.map((d) => (
-            <div key={d} className="text-xs font-semibold text-muted-foreground text-center py-2 border-b border-r">
+            <div key={d} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 text-center py-3">
               {d}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7">
+        {/* Day cells */}
+        <div className="grid grid-cols-7 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
           {cells.map((date, i) => {
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             return (

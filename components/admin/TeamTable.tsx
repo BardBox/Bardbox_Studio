@@ -1,13 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { DataTable } from 'primereact/datatable';
-import type { DataTableFilterMeta } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { FilterMatchMode } from 'primereact/api';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Search, Plus, UserPlus, ArrowUpDown, Pencil, KeyRound, ToggleRight, ToggleLeft } from 'lucide-react';
 import { InviteDialog } from './InviteDialog';
 import { EditUserDialog } from './EditUserDialog';
 import { ResetPasswordDialog } from './ResetPasswordDialog';
@@ -32,26 +27,30 @@ export interface TeamUser {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  designer:  'Designer',
-  smo:       'SMO',
-  manager:   'Manager',
-  admin:     'Admin',
-  ceo:       'CEO',
-  hr:        'HR',
-  developer: 'Developer',
+  designer: 'Designer', smo: 'SMO', manager: 'Manager',
+  admin: 'Admin', ceo: 'CEO', hr: 'HR', developer: 'Developer',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  designer:  'bg-blue-500/15 text-blue-700 border-blue-400/30',
+  smo:       'bg-violet-500/15 text-violet-700 border-violet-400/30',
+  manager:   'bg-amber-500/15 text-amber-700 border-amber-400/30',
+  admin:     'bg-slate-500/15 text-slate-700 border-slate-400/30',
+  ceo:       'bg-indigo-500/15 text-indigo-700 border-indigo-400/30',
+  hr:        'bg-pink-500/15 text-pink-700 border-pink-400/30',
+  developer: 'bg-emerald-500/15 text-emerald-700 border-emerald-400/30',
 };
 
 const ROLE_OPTIONS = [
-  { label: 'Designer',  value: 'designer' },
-  { label: 'SMO',       value: 'smo' },
-  { label: 'Manager',   value: 'manager' },
-  { label: 'Admin',     value: 'admin' },
-  { label: 'CEO',       value: 'ceo' },
-  { label: 'HR',        value: 'hr' },
+  { label: 'Designer', value: 'designer' }, { label: 'SMO', value: 'smo' },
+  { label: 'Manager', value: 'manager' },   { label: 'Admin', value: 'admin' },
+  { label: 'CEO', value: 'ceo' },           { label: 'HR', value: 'hr' },
   { label: 'Developer', value: 'developer' },
 ];
 
 export interface RoleOption { key: string; label: string; }
+
+type SortKey = 'full_name' | 'email' | 'role' | 'max_concurrent_tasks' | 'daily_capacity' | 'is_active';
 
 export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser[]; roles?: RoleOption[] }) {
   const [users, setUsers] = useState(initialUsers);
@@ -60,12 +59,32 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
   const [editUser, setEditUser] = useState<TeamUser | null>(null);
   const [resetUser, setResetUser] = useState<TeamUser | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [filters, setFilters] = useState<DataTableFilterMeta>({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    role:   { value: null, matchMode: FilterMatchMode.EQUALS },
-  });
+  const [sortKey, setSortKey] = useState<SortKey>('role');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortAsc(a => !a);
+    else { setSortKey(key); setSortAsc(true); }
+  }
+
+  const visible = useMemo(() => {
+    let list = users;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(u => u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+    }
+    if (roleFilter) list = list.filter(u => u.role === roleFilter);
+    list = [...list].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av ?? '').localeCompare(String(bv ?? ''));
+      return sortAsc ? cmp : -cmp;
+    });
+    return list;
+  }, [users, search, roleFilter, sortKey, sortAsc]);
 
   async function toggleActive(user: TeamUser) {
     setTogglingId(user.id);
@@ -87,145 +106,149 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
     setUsers(us => us.map(u => u.id === userId ? { ...u, ...updated } : u));
   }
 
-  function handleInvited() {
-    window.location.reload();
+  const thClass = 'px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap';
+  const tdClass = 'px-4 py-3';
+
+  function SortBtn({ col }: { col: SortKey }) {
+    return (
+      <button onClick={() => toggleSort(col)} className="inline-flex items-center gap-0.5 hover:text-slate-700 transition-colors">
+        <ArrowUpDown className={`size-2.5 ${sortKey === col ? 'text-blue-500' : 'text-slate-300'}`} />
+      </button>
+    );
   }
-
-  function handleRoleFilter(value: string) {
-    setRoleFilter(value);
-    setFilters(f => ({
-      ...f,
-      role: { value: value || null, matchMode: FilterMatchMode.EQUALS },
-    }));
-  }
-
-  const nameBody = (user: TeamUser) => (
-    <div className={!user.is_active ? 'opacity-50' : ''}>
-      <div className="font-medium">{user.full_name}</div>
-      {user.designation && (
-        <div className="text-xs text-muted-foreground">{user.designation}</div>
-      )}
-    </div>
-  );
-
-  const emailBody = (user: TeamUser) => (
-    <div className={`text-sm ${!user.is_active ? 'opacity-50' : ''}`}>
-      <div className="text-muted-foreground">{user.email}</div>
-      {user.employee_id && (
-        <div className="text-xs font-mono text-muted-foreground/70">{user.employee_id}</div>
-      )}
-    </div>
-  );
-
-  const roleBody = (user: TeamUser) => (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <Badge variant="secondary">{ROLE_LABELS[user.role] ?? user.role}</Badge>
-      {user.specialty === 'video_editor' && (
-        <Badge variant="outline" className="text-[10px] border-purple-400 text-purple-600">🎬 Video</Badge>
-      )}
-      {user.specialty === 'graphic_designer' && (
-        <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-600">🎨 Graphic</Badge>
-      )}
-    </div>
-  );
-
-  const taskCapBody = (user: TeamUser) => (
-    <span className="text-right tabular-nums">{user.max_concurrent_tasks}</span>
-  );
-
-  const dailyCapBody = (user: TeamUser) => (
-    <span className="text-right tabular-nums">{user.daily_capacity ?? 3}</span>
-  );
-
-  const statusBody = (user: TeamUser) => (
-    <span className={`text-xs font-medium ${user.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
-      {user.is_active ? 'Active' : 'Inactive'}
-    </span>
-  );
-
-  const actionsBody = (user: TeamUser) => (
-    <div className="flex items-center justify-end gap-2">
-      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditUser(user)}>
-        Edit
-      </Button>
-      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setResetUser(user)}>
-        Reset PW
-      </Button>
-      <Button
-        size="sm" variant="ghost"
-        className={`h-7 text-xs ${user.is_active ? 'text-destructive hover:text-destructive' : 'text-green-600 hover:text-green-700'}`}
-        disabled={togglingId === user.id}
-        onClick={() => toggleActive(user)}
-      >
-        {togglingId === user.id ? '…' : user.is_active ? 'Deactivate' : 'Reactivate'}
-      </Button>
-    </div>
-  );
-
-  const tableHeader = (
-    <div className="flex items-center justify-between gap-3 p-1">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Team</h1>
-        <p className="text-sm text-muted-foreground mt-1">{users.length} member{users.length !== 1 ? 's' : ''}</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={globalFilter}
-          onChange={(e) => {
-            setGlobalFilter(e.target.value);
-            setFilters(f => ({ ...f, global: { value: e.target.value, matchMode: FilterMatchMode.CONTAINS } }));
-          }}
-          placeholder="Search name or email…"
-          className="h-9 rounded-lg border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-52"
-        />
-        <select
-          value={roleFilter}
-          onChange={(e) => handleRoleFilter(e.target.value)}
-          className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">All roles</option>
-          {ROLE_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <Button variant="outline" onClick={() => setCreateRoleOpen(true)}>+ Create Role</Button>
-        <Button onClick={() => setInviteOpen(true)}>+ Invite Member</Button>
-      </div>
-    </div>
-  );
 
   return (
     <>
-      <div className="rounded-lg overflow-hidden border">
-        <DataTable
-          value={users}
-          dataKey="id"
-          sortField="role"
-          sortOrder={1}
-          filters={filters}
-          onFilter={(e) => setFilters(e.filters)}
-          globalFilterFields={['full_name', 'email']}
-          size="small"
-          header={tableHeader}
-          emptyMessage="No team members found"
-        >
-          <Column field="full_name" header="Name"     sortable body={nameBody}    style={{ minWidth: '150px' }} />
-          <Column field="email"     header="Email"    sortable body={emailBody}   style={{ minWidth: '200px' }} />
-          <Column field="role"      header="Role"     sortable body={roleBody} style={{ minWidth: '110px' }} />
-          <Column field="max_concurrent_tasks" header="Task Cap"  sortable body={taskCapBody}  style={{ width: '90px', textAlign: 'right' }} />
-          <Column field="daily_capacity"       header="Daily Cap" sortable body={dailyCapBody} style={{ width: '90px', textAlign: 'right' }} />
-          <Column field="is_active" header="Status"  sortable body={statusBody}  style={{ minWidth: '80px' }} />
-          <Column body={actionsBody} style={{ minWidth: '220px' }} />
-        </DataTable>
+      {/* Page header */}
+      <div className="glass-panel rounded-xl px-5 py-3.5 flex items-center justify-between mb-4">
+        <div>
+          <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Team</h1>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
+            {users.length} member{users.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search name or email…"
+              className="h-8 rounded-full border border-white/50 dark:border-white/20 bg-white/60 dark:bg-white/10 pl-8 pr-3 text-xs text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 w-48 backdrop-blur-sm"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={e => setRoleFilter(e.target.value)}
+            className="h-8 rounded-full border border-white/50 dark:border-white/20 bg-white/60 dark:bg-white/10 px-3 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm"
+          >
+            <option value="">All roles</option>
+            {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button
+            onClick={() => setCreateRoleOpen(true)}
+            className="h-8 px-3 rounded-full border border-white/50 dark:border-white/20 bg-white/60 dark:bg-white/10 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-white/20 transition-colors backdrop-blur-sm inline-flex items-center gap-1"
+          >
+            <Plus className="size-3" /> Create Role
+          </button>
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="h-8 px-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all inline-flex items-center gap-1.5"
+          >
+            <UserPlus className="size-3.5" /> Invite Member
+          </button>
+        </div>
       </div>
 
-      <CreateRoleDialog
-        open={createRoleOpen}
-        onClose={() => setCreateRoleOpen(false)}
-        onCreated={() => window.location.reload()}
-      />
-      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={handleInvited} roles={roles} />
+      {/* Table */}
+      <div className="glass-panel rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-white/20 dark:bg-white/5 border-b border-white/30 dark:border-white/10">
+              <tr>
+                <th className={thClass}><span className="flex items-center gap-1">Name <SortBtn col="full_name" /></span></th>
+                <th className={thClass}><span className="flex items-center gap-1">Email <SortBtn col="email" /></span></th>
+                <th className={thClass}><span className="flex items-center gap-1">Role <SortBtn col="role" /></span></th>
+                <th className={`${thClass} text-right`}><span className="flex items-center justify-end gap-1">Task Cap <SortBtn col="max_concurrent_tasks" /></span></th>
+                <th className={`${thClass} text-right`}><span className="flex items-center justify-end gap-1">Daily Cap <SortBtn col="daily_capacity" /></span></th>
+                <th className={thClass}><span className="flex items-center gap-1">Status <SortBtn col="is_active" /></span></th>
+                <th className={thClass} />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/15 dark:divide-white/5">
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">No team members found.</td>
+                </tr>
+              )}
+              {visible.map(user => (
+                <tr key={user.id} className={`hover:bg-white/20 dark:hover:bg-white/5 transition-colors ${!user.is_active ? 'opacity-50' : ''}`}>
+                  <td className={tdClass}>
+                    <div className="font-semibold text-slate-800 dark:text-slate-100">{user.full_name}</div>
+                    {user.designation && <div className="text-xs text-slate-400 mt-0.5">{user.designation}</div>}
+                  </td>
+                  <td className={tdClass}>
+                    <div className="text-slate-500">{user.email}</div>
+                    {user.employee_id && <div className="text-xs font-mono text-slate-400">{user.employee_id}</div>}
+                  </td>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_COLORS[user.role] ?? 'bg-slate-500/10 text-slate-600 border-slate-400/20'}`}>
+                        {ROLE_LABELS[user.role] ?? user.role}
+                      </span>
+                      {user.specialty === 'video_editor' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-700 border border-purple-400/30">🎬 Video</span>
+                      )}
+                      {user.specialty === 'graphic_designer' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-700 border border-sky-400/30">🎨 Graphic</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className={`${tdClass} text-right tabular-nums text-slate-600 dark:text-slate-300 font-medium`}>{user.max_concurrent_tasks}</td>
+                  <td className={`${tdClass} text-right tabular-nums text-slate-600 dark:text-slate-300 font-medium`}>{user.daily_capacity ?? 3}</td>
+                  <td className={tdClass}>
+                    <button
+                      disabled={togglingId === user.id}
+                      onClick={() => toggleActive(user)}
+                      title={user.is_active ? 'Click to deactivate' : 'Click to reactivate'}
+                      className="flex items-center justify-center transition-all disabled:opacity-40 hover:opacity-80"
+                    >
+                      {togglingId === user.id
+                        ? <span className="text-slate-400 text-sm">…</span>
+                        : user.is_active
+                        ? <ToggleRight className="size-7 text-emerald-500" />
+                        : <ToggleLeft className="size-7 text-slate-300" />
+                      }
+                    </button>
+                  </td>
+                  <td className={`${tdClass} text-right`}>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setEditUser(user)}
+                        title="Edit member"
+                        className="size-7 rounded-full flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-500/10 transition-colors"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setResetUser(user)}
+                        title="Reset password"
+                        className="size-7 rounded-full flex items-center justify-center text-slate-500 hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
+                      >
+                        <KeyRound className="size-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <CreateRoleDialog open={createRoleOpen} onClose={() => setCreateRoleOpen(false)} onCreated={() => window.location.reload()} />
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={() => window.location.reload()} roles={roles} />
       <EditUserDialog
         user={editUser}
         onClose={() => setEditUser(null)}

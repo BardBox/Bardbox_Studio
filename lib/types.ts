@@ -55,6 +55,9 @@ export interface PipelineTask {
   assignee_specialty: 'video_editor' | 'graphic_designer' | null;
   smo_id: string | null;
   smo_name: string | null;
+  designer_id: string | null;
+  designer_name: string | null;
+  designer_specialty: 'video_editor' | 'graphic_designer' | null;
   hours_until_deadline: number;
   pressure_level: PressureLevel;
 }

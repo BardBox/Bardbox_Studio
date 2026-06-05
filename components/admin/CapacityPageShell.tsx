@@ -36,7 +36,7 @@ export function CapacityPageShell({ initialUsers, initialContentTypes }: Props) 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <ContentTypeManager
         initialTypes={initialContentTypes}
         onAdded={handleTypeAdded}

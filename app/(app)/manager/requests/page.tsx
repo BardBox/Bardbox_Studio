@@ -18,11 +18,9 @@ export default async function ManagerRequestsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Task Requests</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review and approve content requests from the team.
-        </p>
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Task Requests</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-0.5">Review and approve content requests from the team.</p>
       </div>
       <TaskRequestsQueue initialRequests={requests} />
     </div>

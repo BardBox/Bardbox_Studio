@@ -1,7 +1,6 @@
 'use client';
 
 import type { PipelineSummary } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface KpiBarProps {
@@ -15,73 +14,63 @@ export function KpiBar({ summary, onCardClick }: KpiBarProps) {
       key: 'due_today',
       label: 'Due Today',
       value: summary.posts_due_today,
-      alert: summary.posts_due_today > 0,
-      alertClass: 'text-orange-600',
-      borderClass: 'border-orange-200',
+      valueClass: summary.posts_due_today > 0 ? 'text-orange-500' : 'text-slate-700 dark:text-slate-200',
+      accent: summary.posts_due_today > 0 ? 'border-orange-300/40' : '',
     },
     {
       key: 'next_7',
       label: 'Next 7 Days',
       value: summary.posts_next_7_days,
-      alert: false,
-      alertClass: '',
-      borderClass: '',
+      valueClass: 'text-slate-700 dark:text-slate-200',
+      accent: '',
     },
     {
       key: 'overdue',
       label: 'Overdue',
       value: summary.overdue,
-      alert: summary.overdue > 0,
-      alertClass: 'text-destructive',
-      borderClass: 'border-destructive/30',
+      valueClass: summary.overdue > 0 ? 'text-red-500' : 'text-slate-700 dark:text-slate-200',
+      accent: summary.overdue > 0 ? 'border-red-300/40' : '',
     },
     {
       key: 'critical',
       label: 'Critical (<48h)',
       value: summary.critical,
-      alert: summary.critical > 0,
-      alertClass: 'text-orange-500',
-      borderClass: 'border-orange-200',
+      valueClass: summary.critical > 0 ? 'text-orange-500' : 'text-slate-700 dark:text-slate-200',
+      accent: summary.critical > 0 ? 'border-orange-300/40' : '',
     },
     {
       key: 'approaching',
       label: 'Approaching',
       value: summary.approaching,
-      alert: false,
-      alertClass: '',
-      borderClass: '',
+      valueClass: 'text-slate-700 dark:text-slate-200',
+      accent: '',
     },
     {
       key: 'done',
       label: 'Done This Week',
       value: summary.completed_this_week,
-      alert: false,
-      alertClass: 'text-emerald-600',
-      borderClass: 'border-emerald-100',
-      positive: true,
+      valueClass: 'text-emerald-500',
+      accent: 'border-emerald-300/30',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {stats.map(({ key, label, value, alert, alertClass, borderClass, positive }) => (
-        <Card
+      {stats.map(({ key, label, value, valueClass, accent }) => (
+        <div
           key={key}
           onClick={() => onCardClick?.(key)}
           className={cn(
-            'transition-all duration-200 select-none',
-            onCardClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97]',
-            alert && borderClass,
-            positive && 'border-emerald-100',
+            'glass-panel rounded-xl p-4 transition-all duration-200 border',
+            accent || 'border-white/50 dark:border-white/10',
+            onCardClick && 'cursor-pointer hover:brightness-105 active:scale-[0.97]',
           )}
         >
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground leading-tight">{label}</p>
-            <p className={cn('text-3xl font-bold mt-1 tabular-nums', alertClass, positive && !alertClass && 'text-emerald-600')}>
-              {value ?? 0}
-            </p>
-          </CardContent>
-        </Card>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">{label}</p>
+          <p className={cn('text-3xl font-bold mt-1.5 tabular-nums', valueClass)}>
+            {value ?? 0}
+          </p>
+        </div>
       ))}
     </div>
   );

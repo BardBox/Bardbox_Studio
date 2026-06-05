@@ -65,10 +65,10 @@ export default async function AdminSettingsPage() {
       };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">AI provider configuration and knowledge base</p>
+    <div className="space-y-4">
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">App Settings</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">AI provider configuration and knowledge base</p>
       </div>
       <AiSettingsPanel
         initialSettings={settings}

@@ -29,10 +29,11 @@ export function CeoDashboard({
   const [reassignTask, setReassignTask] = useState<PipelineTask | null>(null);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Executive Overview</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="space-y-5">
+      {/* Page header */}
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Executive Overview</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
           Full pipeline visibility across all clients and teams.
         </p>
       </div>
@@ -42,8 +43,8 @@ export function CeoDashboard({
       {pendingApprovals.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Pending Approvals</h2>
-            <span className="text-sm bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-medium">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 tracking-tight">Pending Approvals</h2>
+            <span className="text-[10px] font-bold px-2.5 py-1 bg-orange-500/10 text-orange-600 border border-orange-300/30 rounded-full">
               {pendingApprovals.length} waiting
             </span>
           </div>
@@ -52,17 +53,17 @@ export function CeoDashboard({
       )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Client Health</h2>
+        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 tracking-tight">Client Health</h2>
         <ClientHealthTable clients={clientHealth} />
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-lg font-semibold">Team Workload</h2>
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 tracking-tight">Team Workload</h2>
           <TeamLoadTable members={teamLoad} />
         </div>
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Throughput (12 weeks)</h2>
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200 tracking-tight">Throughput (12 weeks)</h2>
           <ThroughputChart data={throughput} />
         </div>
       </div>

@@ -3,9 +3,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Trash2, CalendarOff, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 
 export interface Holiday {
   id: number;
@@ -27,11 +24,13 @@ function isPast(isoDate: string) {
   return isoDate < new Date().toISOString().slice(0, 10);
 }
 
+const inputCls = 'h-8 rounded-full border border-white/50 bg-white/60 px-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm';
+
 export function HolidaysShell({ initialHolidays }: Props) {
-  const [holidays, setHolidays] = useState<Holiday[]>(initialHolidays);
-  const [date, setDate]         = useState('');
-  const [name, setName]         = useState('');
-  const [adding, setAdding]     = useState(false);
+  const [holidays, setHolidays]     = useState<Holiday[]>(initialHolidays);
+  const [date, setDate]             = useState('');
+  const [name, setName]             = useState('');
+  const [adding, setAdding]         = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function handleAdd() {
@@ -53,7 +52,7 @@ export function HolidaysShell({ initialHolidays }: Props) {
       );
       setDate('');
       setName('');
-      toast.success(`Holiday "${created.name}" added`);
+      toast.success(`"${created.name}" added`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to add holiday');
     } finally {
@@ -79,60 +78,74 @@ export function HolidaysShell({ initialHolidays }: Props) {
   const past     = holidays.filter(h =>  isPast(h.holiday_date));
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-4 max-w-2xl">
 
       {/* Add form */}
-      <div className="rounded-xl border bg-card p-5 space-y-4">
-        <h2 className="font-semibold text-sm">Add Holiday</h2>
-        <div className="flex gap-3 flex-wrap">
-          <Input
+      <div className="glass-panel rounded-xl px-5 py-4 space-y-3">
+        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Add Holiday</h2>
+        <div className="flex gap-2 flex-wrap">
+          <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="w-44"
+            className={`${inputCls} w-40`}
           />
-          <Input
+          <input
             placeholder="Holiday name (e.g. Diwali)"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="flex-1 min-w-48"
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            className={`${inputCls} flex-1 min-w-48`}
           />
-          <Button onClick={handleAdd} disabled={adding || !date || !name.trim()} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
+          <button
+            onClick={handleAdd}
+            disabled={adding || !date || !name.trim()}
+            className="h-8 px-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all inline-flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Plus className="size-3.5" />
             {adding ? 'Adding…' : 'Add'}
-          </Button>
+          </button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[10px] text-slate-400">
           Task creation and imports will automatically skip holidays. Calendar marks them as "Off".
         </p>
       </div>
 
       {/* Upcoming holidays */}
       <div className="space-y-2">
-        <h2 className="font-semibold text-sm">Upcoming Holidays</h2>
+        <div className="flex items-center gap-2 px-1">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Upcoming Holidays</h2>
+          {upcoming.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 border border-orange-400/20">
+              {upcoming.length}
+            </span>
+          )}
+        </div>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center border rounded-xl">No upcoming holidays added yet.</p>
+          <div className="glass-panel rounded-xl p-6 text-center text-slate-400 text-sm">
+            No upcoming holidays added yet.
+          </div>
         ) : (
-          <div className="rounded-xl border divide-y">
-            {upcoming.map(h => (
-              <div key={h.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30">
+          <div className="glass-panel rounded-xl overflow-hidden">
+            {upcoming.map((h, idx) => (
+              <div
+                key={h.id}
+                className={`flex items-center justify-between px-4 py-3 hover:bg-white/20 transition-colors ${idx < upcoming.length - 1 ? 'border-b border-white/15' : ''}`}
+              >
                 <div className="flex items-center gap-3">
-                  <CalendarOff className="h-4 w-4 text-orange-500 shrink-0" />
+                  <CalendarOff className="size-4 text-orange-500 shrink-0" />
                   <div>
-                    <p className="font-medium text-sm">{h.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(h.holiday_date)}</p>
+                    <p className="font-semibold text-sm text-slate-800 dark:text-slate-100">{h.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{formatDate(h.holiday_date)}</p>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-red-600"
+                <button
                   disabled={deletingId === h.id}
                   onClick={() => handleDelete(h.id, h.name)}
+                  className="size-7 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-40"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  <Trash2 className="size-3.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -142,18 +155,21 @@ export function HolidaysShell({ initialHolidays }: Props) {
       {/* Past holidays */}
       {past.length > 0 && (
         <div className="space-y-2">
-          <h2 className="font-semibold text-sm text-muted-foreground">Past Holidays</h2>
-          <div className="rounded-xl border divide-y opacity-60">
-            {past.map(h => (
-              <div key={h.id} className="flex items-center justify-between px-4 py-3">
+          <h2 className="text-sm font-bold text-slate-400 px-1">Past Holidays</h2>
+          <div className="glass-panel rounded-xl overflow-hidden opacity-60">
+            {past.map((h, idx) => (
+              <div
+                key={h.id}
+                className={`flex items-center justify-between px-4 py-3 ${idx < past.length - 1 ? 'border-b border-white/15' : ''}`}
+              >
                 <div className="flex items-center gap-3">
-                  <CalendarOff className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <CalendarOff className="size-4 text-slate-400 shrink-0" />
                   <div>
-                    <p className="text-sm">{h.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(h.holiday_date)}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{h.name}</p>
+                    <p className="text-xs text-slate-400">{formatDate(h.holiday_date)}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">Past</Badge>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-400/20">Past</span>
               </div>
             ))}
           </div>

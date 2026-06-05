@@ -739,6 +739,84 @@
   }
 }
 
+/* ─── PrimeReact DataTable glassmorphic overrides ────────── */
+.p-datatable {
+  background: transparent !important;
+}
+.p-datatable .p-datatable-wrapper {
+  background: transparent !important;
+}
+.p-datatable .p-datatable-thead > tr > th {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 10px 12px !important;
+  white-space: nowrap !important;
+}
+.p-datatable .p-datatable-thead > tr > th:hover,
+.p-datatable .p-sortable-column:not(.p-highlight):hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+  color: #1e40af !important;
+}
+.p-datatable .p-sortable-column.p-highlight {
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #2563eb !important;
+}
+.p-datatable .p-sortable-column-icon {
+  color: #94a3b8 !important;
+}
+.p-datatable .p-column-filter-menu-button {
+  color: #94a3b8 !important;
+  border-radius: 50% !important;
+}
+.p-datatable .p-column-filter-menu-button:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+  color: #3b82f6 !important;
+}
+.p-datatable .p-column-filter-menu-button.p-column-filter-menu-button-active {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #2563eb !important;
+}
+.p-datatable .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+.p-datatable .p-datatable-tbody > tr > td {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  padding: 9px 12px !important;
+}
+.p-paginator {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  padding: 8px 12px !important;
+}
+.p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #2563eb !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.p-paginator .p-paginator-pages .p-paginator-page:not(.p-highlight):hover,
+.p-paginator .p-paginator-prev:hover,
+.p-paginator .p-paginator-next:hover,
+.p-paginator .p-paginator-first:hover,
+.p-paginator .p-paginator-last:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
+.p-paginator .p-dropdown {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
 /* PrimeReact: override dark theme variables in light mode */
 html:not(.dark) {
   --surface-a: #ffffff;

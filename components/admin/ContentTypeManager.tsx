@@ -2,8 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 export interface ContentType {
@@ -46,29 +44,31 @@ function AddTypeForm({ onAdd }: { onAdd: (ct: ContentType) => void }) {
   }
 
   return (
-    <tr className="border-t border-border bg-muted/10">
-      <td className="py-2 px-3">
-        <Input
+    <tr className="border-t border-white/20 bg-blue-500/5 text-xs">
+      <td className="py-1.5 px-3">
+        <input
           value={label}
           onChange={e => setLabel(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
           placeholder="e.g. Banner"
-          className="h-7 text-xs w-36"
+          className="h-6 w-36 rounded-lg border border-white/50 bg-white/60 px-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm"
         />
       </td>
-      <td className="py-2 px-3 text-xs text-muted-foreground">
-        auto from label
+      <td className="py-1.5 px-3 text-[10px] text-slate-400 italic">auto from label</td>
+      <td className="py-1.5 px-3 text-center">
+        <input type="checkbox" checked={forDesigner} onChange={e => setForDesigner(e.target.checked)} className="h-3.5 w-3.5 rounded accent-blue-500" />
       </td>
-      <td className="py-2 px-3 text-center">
-        <input type="checkbox" checked={forDesigner} onChange={e => setForDesigner(e.target.checked)} className="h-4 w-4 rounded" />
+      <td className="py-1.5 px-3 text-center">
+        <input type="checkbox" checked={forSmo} onChange={e => setForSmo(e.target.checked)} className="h-3.5 w-3.5 rounded accent-violet-500" />
       </td>
-      <td className="py-2 px-3 text-center">
-        <input type="checkbox" checked={forSmo} onChange={e => setForSmo(e.target.checked)} className="h-4 w-4 rounded" />
-      </td>
-      <td className="py-2 px-3 text-right">
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={submit} disabled={pending || !label.trim()}>
-          <Plus className="h-3 w-3" /> Add
-        </Button>
+      <td className="py-1.5 px-3 text-right">
+        <button
+          onClick={submit}
+          disabled={pending || !label.trim()}
+          className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700 transition-colors disabled:opacity-40"
+        >
+          <Plus className="size-2.5" /> Add
+        </button>
       </td>
     </tr>
   );
@@ -119,69 +119,72 @@ export function ContentTypeManager({ initialTypes, onAdded, onDeleted, onUpdated
   }
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="glass-panel rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-muted/20 hover:bg-muted/40 transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-white/20 hover:bg-white/30 transition-colors text-left"
       >
-        <div>
-          <span className="font-semibold text-sm">Manage Content Types</span>
-          <span className="ml-2 text-xs text-muted-foreground">{types.length} types defined</span>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-slate-800 dark:text-slate-100">Manage Content Types</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500 border border-slate-400/20">{types.length} types</span>
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        {open
+          ? <ChevronUp className="size-3.5 text-slate-400" />
+          : <ChevronDown className="size-3.5 text-slate-400" />}
       </button>
 
       {open && (
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border/50 text-xs text-muted-foreground">
-              <th className="text-left py-2 px-3 font-medium">Label</th>
-              <th className="text-left py-2 px-3 font-medium">Key</th>
-              <th className="text-center py-2 px-3 font-medium">Designer</th>
-              <th className="text-center py-2 px-3 font-medium">SMO</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {types.map(ct => (
-              <tr key={ct.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="py-2 px-3 text-sm font-medium">{ct.label}</td>
-                <td className="py-2 px-3">
-                  <code className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{ct.key}</code>
-                </td>
-                <td className="py-2 px-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={ct.for_designer}
-                    onChange={e => handleToggle(ct.id, 'for_designer', e.target.checked)}
-                    disabled={pending}
-                    className="h-4 w-4 rounded"
-                  />
-                </td>
-                <td className="py-2 px-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={ct.for_smo}
-                    onChange={e => handleToggle(ct.id, 'for_smo', e.target.checked)}
-                    disabled={pending}
-                    className="h-4 w-4 rounded"
-                  />
-                </td>
-                <td className="py-2 px-3 text-right">
-                  <Button
-                    size="icon" variant="ghost"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(ct.id, ct.label)}
-                    disabled={pending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="border-b border-white/20">
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="text-left py-1.5 px-3">Label</th>
+                <th className="text-left py-1.5 px-3">Key</th>
+                <th className="text-center py-1.5 px-3">Designer</th>
+                <th className="text-center py-1.5 px-3">SMO</th>
+                <th />
               </tr>
-            ))}
-            <AddTypeForm onAdd={handleAdd} />
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {types.map(ct => (
+                <tr key={ct.id} className="border-b border-white/10 last:border-0 hover:bg-white/15 transition-colors">
+                  <td className="py-1.5 px-3 font-medium text-slate-700">{ct.label}</td>
+                  <td className="py-1.5 px-3">
+                    <code className="text-[10px] bg-slate-500/10 px-1.5 py-0.5 rounded text-slate-500">{ct.key}</code>
+                  </td>
+                  <td className="py-1.5 px-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={ct.for_designer}
+                      onChange={e => handleToggle(ct.id, 'for_designer', e.target.checked)}
+                      disabled={pending}
+                      className="h-3.5 w-3.5 rounded accent-blue-500"
+                    />
+                  </td>
+                  <td className="py-1.5 px-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={ct.for_smo}
+                      onChange={e => handleToggle(ct.id, 'for_smo', e.target.checked)}
+                      disabled={pending}
+                      className="h-3.5 w-3.5 rounded accent-violet-500"
+                    />
+                  </td>
+                  <td className="py-1.5 px-3 text-right">
+                    <button
+                      onClick={() => handleDelete(ct.id, ct.label)}
+                      disabled={pending}
+                      className="size-6 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-40 ml-auto"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              <AddTypeForm onAdd={handleAdd} />
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

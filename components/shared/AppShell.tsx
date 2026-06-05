@@ -330,7 +330,7 @@ export function AppShell({ displayName, role, nav, children }: AppShellProps) {
 
       {/* Main content */}
       <main className="lg:ml-72">
-        <div className="max-w-7xl mx-auto px-4 py-6">{children}</div>
+        <div className="p-4">{children}</div>
       </main>
 
       <AiAssistant />

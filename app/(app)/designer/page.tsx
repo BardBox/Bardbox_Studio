@@ -22,11 +22,11 @@ export default async function DesignerPage() {
     .order('hours_until_deadline', { ascending: true });
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">My Design Tasks</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Click a card to update its status
+    <div className="space-y-4">
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">My Design Tasks</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
+          Click a card to update its status.
         </p>
       </div>
       <KanbanBoard initialTasks={(tasks ?? []) as PipelineTask[]} />

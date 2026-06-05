@@ -6,18 +6,21 @@ interface Props {
   availability: TeamAvailability[];
 }
 
+const AVATAR_COLORS = ['bg-blue-500','bg-violet-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-cyan-500','bg-indigo-500','bg-orange-500'];
+function avatarBg(name: string) {
+  return AVATAR_COLORS[(name.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
+}
+
 export function LeaveCalendar({ availability: data }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Build 30-day grid
   const days = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() + i);
     return d;
   });
 
-  // For each day, find who is on approved leave
   function getAbsentees(day: Date): { name: string; role: string }[] {
     const ds = day.toISOString().slice(0, 10);
     const seen = new Set<string>();
@@ -35,44 +38,58 @@ export function LeaveCalendar({ availability: data }: Props) {
   }
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  // Pad first row to align to correct weekday
-  const firstDayOffset = today.getDay(); // 0=Sun
+  const firstDayOffset = today.getDay();
   const paddedDays: (Date | null)[] = [
     ...Array.from({ length: firstDayOffset }, () => null),
     ...days,
   ];
 
   return (
-    <div className="rounded-xl border bg-background p-4 overflow-x-auto">
-      <div className="grid grid-cols-7 gap-1 min-w-[560px]">
+    <div className="glass-panel rounded-xl p-4 overflow-x-auto">
+      <div className="grid grid-cols-7 gap-1.5 min-w-[560px]">
+        {/* Day headers */}
         {weekDays.map((wd) => (
-          <div key={wd} className="text-xs font-medium text-muted-foreground text-center py-1">
+          <div key={wd} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 text-center py-1.5">
             {wd}
           </div>
         ))}
+
+        {/* Day cells */}
         {paddedDays.map((day, idx) => {
           if (!day) return <div key={`pad-${idx}`} />;
           const absentees = getAbsentees(day);
           const isToday = day.toISOString().slice(0, 10) === today.toISOString().slice(0, 10);
+          const hasAbsent = absentees.length > 0;
+
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-[72px] rounded-lg p-1.5 text-xs border ${
-                isToday ? 'border-primary bg-primary/5' : 'border-transparent bg-muted/30'
+              className={`min-h-[80px] rounded-xl p-2 text-xs transition-colors ${
+                isToday
+                  ? 'bg-blue-500/10 border border-blue-400/40'
+                  : hasAbsent
+                  ? 'bg-red-500/5 border border-red-300/20'
+                  : 'bg-white/5 dark:bg-white/3 border border-white/10 dark:border-white/5'
               }`}
             >
-              <div className={`font-medium mb-1 ${isToday ? 'text-primary' : 'text-foreground'}`}>
+              <div className={`font-bold mb-1.5 ${
+                isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
+              }`}>
                 {day.getDate()}
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {absentees.map((a, i) => (
                   <div
                     key={i}
-                    className="bg-red-100 text-red-700 rounded px-1 py-0.5 truncate"
+                    className="flex items-center gap-1"
                     title={`${a.name} (${a.role})`}
                   >
-                    {a.name.split(' ')[0]}
+                    <div className={`size-3.5 rounded-full ${avatarBg(a.name)} shrink-0 flex items-center justify-center`}>
+                      <span className="text-[6px] font-black text-white">{a.name[0]}</span>
+                    </div>
+                    <span className="text-[9px] font-medium text-red-600 dark:text-red-400 truncate">
+                      {a.name.split(' ')[0]}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -80,8 +97,9 @@ export function LeaveCalendar({ availability: data }: Props) {
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground mt-3">
-        Red cells = team member on approved leave that day.
+      <p className="text-[10px] text-slate-400 mt-3 flex items-center gap-1.5">
+        <span className="inline-block w-2 h-2 rounded-full bg-red-400" />
+        Team members on approved leave are shown in red.
       </p>
     </div>
   );

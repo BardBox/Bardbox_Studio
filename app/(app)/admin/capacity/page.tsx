@@ -63,12 +63,11 @@ export default async function CapacityPage() {
   }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Task Capacity</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Set how many tasks of each content type each employee can handle per working day.
-          Weekends (Sat/Sun) are automatically excluded — schedulers and CEO can manually override for weekend posts.
+    <div className="space-y-4">
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Task Capacity</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
+          Per-employee content type caps · weekends auto-excluded
         </p>
       </div>
       <CapacityPageShell

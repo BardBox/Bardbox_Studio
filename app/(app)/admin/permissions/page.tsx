@@ -41,10 +41,10 @@ export default async function PermissionsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Permissions</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Control which pages each role can access. Changes take effect on next page load.
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 dark:text-slate-100 tracking-tight">Permissions</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
+          Control page access per role · changes take effect on next page load
         </p>
       </div>
       <PermissionsMatrix

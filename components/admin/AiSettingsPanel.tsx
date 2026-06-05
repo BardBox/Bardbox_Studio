@@ -2,16 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog';
+import { Plus, Pencil, Trash2, ToggleRight, ToggleLeft } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,43 +51,18 @@ const PROVIDER_DESC: Record<Provider, string> = {
 };
 
 const PROVIDER_ICON: Record<Provider, string> = {
-  gemini:    '✦',
-  groq:      '⚡',
-  anthropic: '◈',
-  openai:    '◆',
-  ollama:    '🦙',
+  gemini: '✦', groq: '⚡', anthropic: '◈', openai: '◆', ollama: '🦙',
 };
 
-const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-  'gemini-2.0-flash-lite',
-];
-
-const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
-  'gemma2-9b-it',
-];
-
-const ANTHROPIC_MODELS = [
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-6',
-  'claude-opus-4-7',
-];
-
-const OLLAMA_SUGGESTED = ['llama3.2', 'llama3.1', 'mistral', 'gemma2', 'phi3.5', 'qwen2.5'];
-
-const OPENAI_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'];
+const GEMINI_MODELS    = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro','gemini-2.0-flash-lite'];
+const GROQ_MODELS      = ['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'];
+const ANTHROPIC_MODELS = ['claude-haiku-4-5-20251001','claude-sonnet-4-6','claude-opus-4-7'];
+const OPENAI_MODELS    = ['gpt-4o-mini','gpt-4o','gpt-4-turbo','gpt-3.5-turbo'];
+const OLLAMA_SUGGESTED = ['llama3.2','llama3.1','mistral','gemma2','phi3.5','qwen2.5'];
 
 const DEFAULT_MODEL: Record<Provider, string> = {
-  gemini:    'gemini-2.0-flash',
-  groq:      'llama-3.3-70b-versatile',
-  anthropic: 'claude-haiku-4-5-20251001',
-  openai:    'gpt-4o-mini',
-  ollama:    'llama3.2',
+  gemini: 'gemini-2.0-flash', groq: 'llama-3.3-70b-versatile',
+  anthropic: 'claude-haiku-4-5-20251001', openai: 'gpt-4o-mini', ollama: 'llama3.2',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -115,22 +81,10 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   general:            'Any other custom context',
 };
 
-// ─── Tab toggle ───────────────────────────────────────────────────────────────
+// ─── Shared input styles ──────────────────────────────────────────────────────
 
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-        active
-          ? 'border-primary text-primary'
-          : 'border-transparent text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
+const inputCls = 'w-full h-8 rounded-xl border border-white/50 bg-white/60 px-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm disabled:opacity-50';
+const selectCls = 'w-full h-8 rounded-xl border border-white/50 bg-white/60 px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm font-mono';
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -140,13 +94,20 @@ export function AiSettingsPanel({ initialSettings, initialDocs }: Props) {
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex border-b gap-2">
-        <Tab active={tab === 'provider'} onClick={() => setTab('provider')}>
-          🤖 AI Provider
-        </Tab>
-        <Tab active={tab === 'training'} onClick={() => setTab('training')}>
-          🧠 Knowledge Base
-        </Tab>
+      <div className="flex gap-1 glass-panel rounded-xl p-1 w-fit">
+        {(['provider', 'training'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              tab === t
+                ? 'bg-white/80 text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t === 'provider' ? '🤖 AI Provider' : '🧠 Knowledge Base'}
+          </button>
+        ))}
       </div>
 
       {tab === 'provider' && <ProviderSection initial={initialSettings} />}
@@ -159,36 +120,29 @@ export function AiSettingsPanel({ initialSettings, initialDocs }: Props) {
 
 function ProviderSection({ initial }: { initial: AiSettings }) {
   const [savedProvider, setSavedProvider] = useState<Provider>(initial.provider);
-  const [savedModel, setSavedModel] = useState<string>(initial.model ?? '');
-  const [provider, setProvider] = useState<Provider>(initial.provider);
-  const [model, setModel] = useState<string>(initial.model ?? '');
-  const [baseUrl, setBaseUrl] = useState(initial.base_url || 'http://100.x.x.x:11434');
-  const [apiKey, setApiKey] = useState('');
-  const [clearKey, setClearKey] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; info?: string; error?: string } | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [savedModel, setSavedModel]       = useState<string>(initial.model ?? '');
+  const [provider, setProvider]           = useState<Provider>(initial.provider);
+  const [model, setModel]                 = useState<string>(initial.model ?? '');
+  const [baseUrl, setBaseUrl]             = useState(initial.base_url || 'http://100.x.x.x:11434');
+  const [apiKey, setApiKey]               = useState('');
+  const [clearKey, setClearKey]           = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [testing, setTesting]             = useState(false);
+  const [testResult, setTestResult]       = useState<{ ok: boolean; info?: string; error?: string } | null>(null);
+  const [ollamaModels, setOllamaModels]   = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
-  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [showKeyInput, setShowKeyInput]   = useState(false);
 
   const hasEnvKey = initial.env_key_map[provider] ?? false;
-  const hasKey = clearKey ? false : (!!apiKey || initial.has_db_key || hasEnvKey);
-
-  // Show actions only when something actually changed
-  const hasChanges =
-    provider !== savedProvider ||
-    model !== savedModel ||
-    showKeyInput ||
-    clearKey;
+  const hasKey    = clearKey ? false : (!!apiKey || initial.has_db_key || hasEnvKey);
+  const hasChanges = provider !== savedProvider || model !== savedModel || showKeyInput || clearKey;
 
   async function fetchOllamaModels() {
     if (!baseUrl) return;
     setFetchingModels(true);
     try {
       const res = await fetch('/api/admin/ai-settings/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: 'ollama', model, base_url: baseUrl }),
       });
       const data = await res.json();
@@ -201,75 +155,67 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
   }
 
   async function handleTest() {
-    setTesting(true);
-    setTestResult(null);
-    const config = {
-      provider,
-      model,
-      base_url: (provider === 'ollama' || provider === 'openai') ? baseUrl : undefined,
-      api_key: apiKey || undefined,
-    };
+    setTesting(true); setTestResult(null);
     const res = await fetch('/api/admin/ai-settings/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, model, base_url: (provider === 'ollama' || provider === 'openai') ? baseUrl : undefined, api_key: apiKey || undefined }),
     });
-    const data = await res.json();
-    setTestResult(data);
+    setTestResult(await res.json());
     setTesting(false);
   }
 
   async function handleSave() {
     setSaving(true);
-    const needsBaseUrl = provider === 'ollama' || provider === 'openai';
-    const payload = {
-      provider,
-      model,
-      base_url: needsBaseUrl ? baseUrl : undefined,
-      api_key: clearKey ? '' : (apiKey || undefined),
-    };
     const res = await fetch('/api/admin/ai-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider, model,
+        base_url: (provider === 'ollama' || provider === 'openai') ? baseUrl : undefined,
+        api_key: clearKey ? '' : (apiKey || undefined),
+      }),
     });
     setSaving(false);
     if (res.ok) {
       toast.success('AI settings saved');
-      setApiKey('');
-      setClearKey(false);
-      setShowKeyInput(false);
-      setSavedProvider(provider);
-      setSavedModel(model);
+      setApiKey(''); setClearKey(false); setShowKeyInput(false);
+      setSavedProvider(provider); setSavedModel(model);
     } else {
       const j = await res.json();
       toast.error(j.error ?? 'Failed to save');
     }
   }
 
+  function selectProvider(p: Provider) {
+    setProvider(p); setModel(DEFAULT_MODEL[p]); setTestResult(null);
+    setApiKey(''); setClearKey(false); setShowKeyInput(false);
+  }
+
+  const modelOptions: Record<Provider, string[]> = {
+    gemini: GEMINI_MODELS, groq: GROQ_MODELS,
+    anthropic: ANTHROPIC_MODELS, openai: OPENAI_MODELS, ollama: [],
+  };
+
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Provider selector */}
+    <div className="max-w-2xl space-y-4">
+      {/* Provider cards */}
       <div className="space-y-2">
-        <Label>AI Provider</Label>
-        <div className="grid grid-cols-3 gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">AI Provider</p>
+        <div className="grid grid-cols-3 gap-2">
           {(['gemini', 'groq', 'anthropic', 'openai', 'ollama'] as Provider[]).map(p => (
             <button
               key={p}
-              onClick={() => { setProvider(p); setModel(DEFAULT_MODEL[p]); setTestResult(null); setApiKey(''); setClearKey(false); setShowKeyInput(false); }}
-              className={`rounded-lg border-2 p-3 text-left transition-all relative ${
-                provider === p
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-muted-foreground/40'
+              onClick={() => selectProvider(p)}
+              className={`glass-panel rounded-xl p-3 text-left transition-all relative ${
+                provider === p ? 'ring-2 ring-blue-400/60 bg-blue-500/5' : 'hover:bg-white/30'
               }`}
             >
               {savedProvider === p && (
-                <span className="absolute top-2 right-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 border border-emerald-400/30">
                   Active
                 </span>
               )}
-              <p className="text-sm font-semibold">{PROVIDER_ICON[p]} {PROVIDER_LABELS[p]}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{PROVIDER_DESC[p]}</p>
+              <p className="text-xs font-semibold text-slate-800">{PROVIDER_ICON[p]} {PROVIDER_LABELS[p]}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{PROVIDER_DESC[p]}</p>
             </button>
           ))}
         </div>
@@ -277,53 +223,36 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
 
       {/* Ollama config */}
       {provider === 'ollama' && (
-        <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-          <p className="text-xs text-muted-foreground">
-            Ollama must be running with <code className="bg-muted px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+        <div className="glass-panel rounded-xl p-4 space-y-3">
+          <p className="text-xs text-slate-500">
+            Ollama must be running with <code className="bg-slate-500/10 px-1 rounded text-slate-600">OLLAMA_HOST=0.0.0.0</code>.
             Enter your Tailscale or LAN IP below.
           </p>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Base URL</Label>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Base URL</p>
             <div className="flex gap-2">
-              <Input
-                value={baseUrl}
-                onChange={e => setBaseUrl(e.target.value)}
-                placeholder="http://100.x.x.x:11434"
-                className="font-mono text-sm"
-              />
-              <Button variant="outline" size="sm" onClick={fetchOllamaModels} disabled={fetchingModels}>
+              <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="http://100.x.x.x:11434" className={`${inputCls} font-mono flex-1`} />
+              <button onClick={fetchOllamaModels} disabled={fetchingModels} className="h-8 px-3 rounded-xl border border-white/50 bg-white/60 text-xs text-slate-600 hover:bg-white/80 transition-colors disabled:opacity-50">
                 {fetchingModels ? '…' : 'Fetch models'}
-              </Button>
+              </button>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
-            <Input
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              placeholder="llama3.2"
-              className="font-mono text-sm"
-            />
-            {ollamaModels.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                <p className="w-full text-xs text-muted-foreground">Available on your server:</p>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Model</p>
+            <input value={model} onChange={e => setModel(e.target.value)} placeholder="llama3.2" className={`${inputCls} font-mono`} />
+            {ollamaModels.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <p className="w-full text-[10px] text-slate-400">Available on your server:</p>
                 {ollamaModels.map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setModel(m)}
-                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                      model === m ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'
-                    }`}
-                  >
+                  <button key={m} onClick={() => setModel(m)} className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${model === m ? 'border-blue-400/60 bg-blue-500/10 text-blue-700' : 'border-white/40 bg-white/40 text-slate-600 hover:bg-white/60'}`}>
                     {m}
                   </button>
                 ))}
               </div>
-            )}
-            {ollamaModels.length === 0 && (
-              <p className="text-xs text-muted-foreground">
+            ) : (
+              <p className="text-[10px] text-slate-400 mt-1.5">
                 Suggested: {OLLAMA_SUGGESTED.map(m => (
-                  <button key={m} onClick={() => setModel(m)} className="underline mr-1.5">{m}</button>
+                  <button key={m} onClick={() => setModel(m)} className="underline mr-1.5 hover:text-slate-600">{m}</button>
                 ))}
               </p>
             )}
@@ -331,156 +260,56 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
         </div>
       )}
 
-      {/* Gemini config */}
-      {provider === 'gemini' && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
-              <SelectTrigger className="font-mono text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GEMINI_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      {/* Standard provider config (model + API key) */}
+      {provider !== 'ollama' && (
+        <div className="glass-panel rounded-xl p-4 space-y-3">
+          {/* Groq free-tier notice */}
+          {provider === 'groq' && (
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700">
+              ⚡ Groq offers a <strong>free tier</strong> — 14,400 requests/day. Get your API key at{' '}
+              <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline">console.groq.com</a>
+            </div>
+          )}
+
+          {/* OpenAI base URL */}
+          {provider === 'openai' && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Base URL <span className="normal-case font-normal text-slate-300">(optional, for proxies)</span></p>
+              <input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://api.openai.com" className={`${inputCls} font-mono`} />
+            </div>
+          )}
+
+          {/* Model selector */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Model</p>
+            <select value={model} onChange={e => setModel(e.target.value)} className={selectCls}>
+              {modelOptions[provider].map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">API Key</Label>
+
+          {/* API key */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">API Key</p>
             {hasEnvKey && !clearKey && (
-              <p className="text-xs text-green-600">✓ Using key from <code>GEMINI_API_KEY</code> environment variable</p>
+              <p className="text-xs text-emerald-600 mb-1">✓ Using key from <code className="bg-slate-500/10 px-1 rounded">{provider.toUpperCase()}_API_KEY</code> environment variable</p>
             )}
             {initial.has_db_key && !clearKey && (
-              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
+              <p className="text-xs text-blue-600 mb-1">✓ Custom key saved in database</p>
             )}
             {savedProvider === provider && hasKey && !showKeyInput ? (
-              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
+              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600">
                 Change key
               </button>
             ) : (
-              <>
-                <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'AIza…'} />
+              <div className="space-y-1.5">
+                <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'Paste API key…'} className={inputCls} />
                 {initial.has_db_key && (
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} />
+                  <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                    <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} className="rounded accent-red-500" />
                     Remove stored key (revert to env var)
                   </label>
                 )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Groq config */}
-      {provider === 'groq' && (
-        <div className="space-y-3">
-          <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-3 text-xs text-green-800 dark:text-green-300">
-            ⚡ Groq offers a <strong>free tier</strong> — 14,400 requests/day. Get your API key at{' '}
-            <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="underline">console.groq.com</a>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
-              <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {GROQ_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">API Key</Label>
-            {hasEnvKey && !clearKey && (
-              <p className="text-xs text-green-600">✓ Using key from <code>GROQ_API_KEY</code> environment variable</p>
-            )}
-            {initial.has_db_key && !clearKey && (
-              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
-            )}
-            {savedProvider === provider && hasKey && !showKeyInput ? (
-              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
-                Change key
-              </button>
-            ) : (
-              <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'gsk_…'} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Anthropic config */}
-      {provider === 'anthropic' && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
-              <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ANTHROPIC_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">API Key</Label>
-            {hasEnvKey && !clearKey && (
-              <p className="text-xs text-green-600">✓ Using key from <code>ANTHROPIC_API_KEY</code> environment variable</p>
-            )}
-            {initial.has_db_key && !clearKey && (
-              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
-            )}
-            {savedProvider === provider && hasKey && !showKeyInput ? (
-              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
-                Change key
-              </button>
-            ) : (
-              <>
-                <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'sk-ant-…'} />
-                {initial.has_db_key && (
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                    <input type="checkbox" checked={clearKey} onChange={e => setClearKey(e.target.checked)} />
-                    Remove stored key (revert to env var)
-                  </label>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* OpenAI config */}
-      {provider === 'openai' && (
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Base URL <span className="text-muted-foreground">(optional, for proxies)</span></Label>
-            <Input
-              value={baseUrl}
-              onChange={e => setBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com"
-              className="font-mono text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Model</Label>
-            <Select value={model} onValueChange={(v) => setModel(v ?? '')}>
-              <SelectTrigger className="font-mono text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {OPENAI_MODELS.map(m => <SelectItem key={m} value={m} className="font-mono">{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">API Key</Label>
-            {hasEnvKey && !clearKey && (
-              <p className="text-xs text-green-600">✓ Using key from <code>OPENAI_API_KEY</code> environment variable</p>
-            )}
-            {initial.has_db_key && !clearKey && (
-              <p className="text-xs text-blue-600">✓ Custom key saved in database</p>
-            )}
-            {savedProvider === provider && hasKey && !showKeyInput ? (
-              <button type="button" onClick={() => setShowKeyInput(true)} className="text-xs text-muted-foreground underline">
-                Change key
-              </button>
-            ) : (
-              <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={hasKey ? 'Leave blank to keep existing key' : 'sk-…'} />
+              </div>
             )}
           </div>
         </div>
@@ -488,25 +317,20 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
 
       {/* Test result */}
       {testResult && (
-        <div className={`rounded-lg border px-4 py-3 text-sm ${
-          testResult.ok
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
-          {testResult.ok ? '✓ ' : '✗ '}
-          {testResult.info ?? testResult.error}
+        <div className={`glass-panel rounded-xl px-4 py-3 text-xs font-medium ${testResult.ok ? 'border border-emerald-400/40 text-emerald-700' : 'border border-red-400/40 text-red-600'}`}>
+          {testResult.ok ? '✓ ' : '✗ '}{testResult.info ?? testResult.error}
         </div>
       )}
 
-      {/* Actions — only visible when something has changed */}
+      {/* Actions */}
       {hasChanges && (
-        <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
-          <Button variant="outline" onClick={handleTest} disabled={testing}>
+        <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+          <button onClick={handleTest} disabled={testing} className="h-8 px-4 rounded-full border border-white/50 bg-white/60 text-xs font-semibold text-slate-600 hover:bg-white/80 transition-colors disabled:opacity-50">
             {testing ? 'Testing…' : '⚡ Test Connection'}
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          </button>
+          <button onClick={handleSave} disabled={saving} className="h-8 px-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50">
             {saving ? 'Saving…' : 'Save Settings'}
-          </Button>
+          </button>
         </div>
       )}
     </div>
@@ -516,9 +340,9 @@ function ProviderSection({ initial }: { initial: AiSettings }) {
 // ─── Training / Knowledge base section ───────────────────────────────────────
 
 function TrainingSection({ initialDocs }: { initialDocs: TrainingDoc[] }) {
-  const [docs, setDocs] = useState<TrainingDoc[]>(initialDocs);
+  const [docs, setDocs]       = useState<TrainingDoc[]>(initialDocs);
   const [editDoc, setEditDoc] = useState<Partial<TrainingDoc> | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState('all');
 
@@ -526,22 +350,13 @@ function TrainingSection({ initialDocs }: { initialDocs: TrainingDoc[] }) {
 
   async function saveDoc() {
     if (!editDoc?.title?.trim() || !editDoc?.content?.trim()) {
-      toast.error('Title and content are required');
-      return;
+      toast.error('Title and content are required'); return;
     }
     setSaving(true);
     const isNew = !editDoc.id;
     const res = isNew
-      ? await fetch('/api/admin/ai-training', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editDoc),
-        })
-      : await fetch(`/api/admin/ai-training/${editDoc.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editDoc),
-        });
+      ? await fetch('/api/admin/ai-training', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editDoc) })
+      : await fetch(`/api/admin/ai-training/${editDoc.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editDoc) });
     const saved = await res.json();
     setSaving(false);
     if (res.ok) {
@@ -555,112 +370,90 @@ function TrainingSection({ initialDocs }: { initialDocs: TrainingDoc[] }) {
 
   async function toggleActive(doc: TrainingDoc) {
     const res = await fetch(`/api/admin/ai-training/${doc.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_active: !doc.is_active }),
     });
-    if (res.ok) {
-      setDocs(ds => ds.map(d => d.id === doc.id ? { ...d, is_active: !doc.is_active } : d));
-    }
+    if (res.ok) setDocs(ds => ds.map(d => d.id === doc.id ? { ...d, is_active: !doc.is_active } : d));
   }
 
   async function confirmDelete() {
     if (!deleteId) return;
     const res = await fetch(`/api/admin/ai-training/${deleteId}`, { method: 'DELETE' });
-    if (res.ok) {
-      setDocs(ds => ds.filter(d => d.id !== deleteId));
-      toast.success('Doc deleted');
-    }
+    if (res.ok) { setDocs(ds => ds.filter(d => d.id !== deleteId)); toast.success('Doc deleted'); }
     setDeleteId(null);
   }
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold">AI Knowledge Base</h2>
-          <p className="text-xs text-muted-foreground">
-            Active documents are injected into every AI response as context — no fine-tuning required.
-            Add brand guidelines, client details, and workflow notes so the AI always knows your business.
-          </p>
+        <div>
+          <p className="text-sm font-bold text-slate-700">AI Knowledge Base</p>
+          <p className="text-xs text-slate-400 mt-0.5">Active documents are injected into every AI response as context.</p>
         </div>
-        <Button size="sm" onClick={() => setEditDoc({ category: 'general', is_active: true })}>
-          + Add Doc
-        </Button>
+        <button onClick={() => setEditDoc({ category: 'general', is_active: true })} className="h-8 px-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all inline-flex items-center gap-1.5">
+          <Plus className="size-3.5" /> Add Doc
+        </button>
       </div>
 
-      {/* Filter by category */}
-      <div className="flex flex-wrap gap-2">
+      {/* Category filter pills */}
+      <div className="flex flex-wrap gap-1.5">
         {['all', 'brand_guidelines', 'client_info', 'workflow', 'creative_direction', 'general'].map(cat => (
           <button
             key={cat}
             onClick={() => setFilterCat(cat)}
-            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-              filterCat === cat ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border hover:bg-muted'
+            className={`text-[10px] font-bold px-3 py-1 rounded-full border transition-colors ${
+              filterCat === cat
+                ? 'border-blue-400/60 bg-blue-500/10 text-blue-700'
+                : 'border-white/40 bg-white/30 text-slate-500 hover:bg-white/50'
             }`}
           >
             {cat === 'all' ? 'All' : CATEGORY_LABELS[cat]}
-            <span className="ml-1 text-muted-foreground">
-              ({cat === 'all' ? docs.length : docs.filter(d => d.category === cat).length})
-            </span>
+            <span className="ml-1 opacity-60">({cat === 'all' ? docs.length : docs.filter(d => d.category === cat).length})</span>
           </button>
         ))}
       </div>
 
-      {/* Category descriptions */}
       {filterCat !== 'all' && (
-        <p className="text-xs text-muted-foreground italic">{CATEGORY_DESCRIPTIONS[filterCat]}</p>
+        <p className="text-[10px] text-slate-400 italic px-1">{CATEGORY_DESCRIPTIONS[filterCat]}</p>
       )}
 
       {/* Doc list */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed p-8 text-center text-sm text-muted-foreground">
+        <div className="glass-panel rounded-xl p-8 text-center border-dashed text-sm text-slate-400">
           No documents yet.{' '}
-          <button className="underline" onClick={() => setEditDoc({ category: filterCat === 'all' ? 'general' : filterCat, is_active: true })}>
+          <button className="underline hover:text-slate-600" onClick={() => setEditDoc({ category: filterCat === 'all' ? 'general' : filterCat, is_active: true })}>
             Add the first one
           </button>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (
-            <div
-              key={doc.id}
-              className={`rounded-lg border p-4 transition-opacity ${doc.is_active ? '' : 'opacity-50'}`}
-            >
+            <div key={doc.id} className={`glass-panel rounded-xl p-4 transition-opacity ${doc.is_active ? '' : 'opacity-50'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold">{doc.title}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    <span className="text-sm font-semibold text-slate-800">{doc.title}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-500 border border-slate-400/20">
                       {CATEGORY_LABELS[doc.category] ?? doc.category}
                     </span>
                     {!doc.is_active && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Disabled</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-400/20">Disabled</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">
-                    {doc.content}
-                  </p>
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2 whitespace-pre-wrap">{doc.content}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => toggleActive(doc)}
-                    className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors"
-                    title={doc.is_active ? 'Disable' : 'Enable'}
-                  >
-                    {doc.is_active ? '✓ Active' : 'Disabled'}
+                  <button onClick={() => toggleActive(doc)} title={doc.is_active ? 'Disable' : 'Enable'} className="transition-colors">
+                    {doc.is_active
+                      ? <ToggleRight className="size-6 text-emerald-500" />
+                      : <ToggleLeft className="size-6 text-slate-300" />}
                   </button>
-                  <button
-                    onClick={() => setEditDoc({ ...doc })}
-                    className="text-xs px-2 py-1 rounded border hover:bg-muted transition-colors"
-                  >
-                    Edit
+                  <button onClick={() => setEditDoc({ ...doc })} className="size-7 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 transition-colors">
+                    <Pencil className="size-3.5" />
                   </button>
-                  <button
-                    onClick={() => setDeleteId(doc.id)}
-                    className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    Delete
+                  <button onClick={() => setDeleteId(doc.id)} className="size-7 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                    <Trash2 className="size-3.5" />
                   </button>
                 </div>
               </div>
@@ -669,76 +462,75 @@ function TrainingSection({ initialDocs }: { initialDocs: TrainingDoc[] }) {
         </div>
       )}
 
-      {/* Edit/create dialog */}
-      <Dialog open={!!editDoc} onOpenChange={open => { if (!open) setEditDoc(null); }}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editDoc?.id ? 'Edit Knowledge Document' : 'Add Knowledge Document'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Title *</Label>
-                <Input
-                  value={editDoc?.title ?? ''}
-                  onChange={e => setEditDoc(d => d ? { ...d, title: e.target.value } : d)}
-                  placeholder="Bardbox Studio Brand Voice"
-                />
+      {/* Edit/create modal */}
+      {editDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl p-6 shadow-2xl border border-white/50 mx-4" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)' }}>
+            <h2 className="text-sm font-bold text-slate-800 mb-4">{editDoc?.id ? 'Edit Knowledge Document' : 'Add Knowledge Document'}</h2>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Title *</label>
+                  <input
+                    value={editDoc?.title ?? ''}
+                    onChange={e => setEditDoc(d => d ? { ...d, title: e.target.value } : d)}
+                    placeholder="Bardbox Studio Brand Voice"
+                    className="w-full h-8 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Category</label>
+                  <select
+                    value={editDoc?.category ?? 'general'}
+                    onChange={e => setEditDoc(d => d ? { ...d, category: e.target.value } : d)}
+                    className="w-full h-8 rounded-xl border border-slate-200 bg-white/80 px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Category</Label>
-                <Select
-                  value={editDoc?.category ?? 'general'}
-                  onValueChange={v => setEditDoc(d => d ? { ...d, category: v ?? undefined } : d)}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 block">Content *</label>
+                <p className="text-[10px] text-slate-400 mb-1">Write everything you want the AI to know. Be specific — the AI will use this verbatim as context.</p>
+                <textarea
+                  value={editDoc?.content ?? ''}
+                  onChange={e => setEditDoc(d => d ? { ...d, content: e.target.value } : d)}
+                  placeholder={`Example:\n- Brand tone: professional but approachable\n- Primary colors: deep blue #1A2E5C, gold #C8A951`}
+                  rows={8}
+                  className="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 font-mono leading-relaxed resize-none"
+                />
+                <p className="text-[10px] text-slate-400 text-right mt-0.5">{editDoc?.content?.length ?? 0} chars</p>
               </div>
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Content *</Label>
-              <p className="text-xs text-muted-foreground">
-                Write everything you want the AI to know. Be specific — the AI will use this verbatim as context.
-              </p>
-              <Textarea
-                value={editDoc?.content ?? ''}
-                onChange={e => setEditDoc(d => d ? { ...d, content: e.target.value } : d)}
-                placeholder={`Example for Brand Guidelines:\n- Brand tone: professional but approachable, avoid jargon\n- Primary colors: deep blue #1A2E5C, gold #C8A951\n- Always use the Oxford comma\n- Never use competitor names in content`}
-                className="min-h-[200px] font-mono text-xs leading-relaxed"
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {editDoc?.content?.length ?? 0} chars
-              </p>
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <button onClick={() => setEditDoc(null)} className="h-8 px-4 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                Cancel
+              </button>
+              <button onClick={saveDoc} disabled={saving} className="h-8 px-4 rounded-full text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {saving ? 'Saving…' : editDoc?.id ? 'Update' : 'Add Document'}
+              </button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDoc(null)}>Cancel</Button>
-            <Button onClick={saveDoc} disabled={saving}>
-              {saving ? 'Saving…' : editDoc?.id ? 'Update' : 'Add Document'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
-      {/* Delete confirm */}
-      <Dialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Delete this document?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            The AI will no longer have access to this knowledge. This cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirm modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-white/50" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)' }}>
+            <h2 className="text-sm font-bold text-slate-800 mb-1">Delete this document?</h2>
+            <p className="text-xs text-slate-500 mb-5">The AI will no longer have access to this knowledge. This cannot be undone.</p>
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={() => setDeleteId(null)} className="h-8 px-4 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                Cancel
+              </button>
+              <button onClick={confirmDelete} className="h-8 px-4 rounded-full text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

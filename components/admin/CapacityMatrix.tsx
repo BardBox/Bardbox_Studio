@@ -1,17 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Trash2, Check, X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Plus, Trash2, Check, X, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import type { ContentType } from './ContentTypeManager';
 
 interface CapacityRow {
@@ -33,11 +23,13 @@ interface UserWithCapacity {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  designer: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-  smo:      'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
+  designer: 'bg-blue-500/15 text-blue-700 border-blue-400/30',
+  smo:      'bg-violet-500/15 text-violet-700 border-violet-400/30',
 };
 
-function CapacityRow({
+const inputCls = 'h-6 rounded-lg border border-white/50 bg-white/60 px-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm';
+
+function CapacityRowItem({
   row,
   onUpdate,
   onDelete,
@@ -64,63 +56,50 @@ function CapacityRow({
     });
   }
 
+  const thClass = 'px-3 py-1.5';
+
   return (
-    <tr className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
-      <td className="py-2 px-3 text-sm font-medium capitalize">{row.content_type.replace(/_/g, ' ')}</td>
-      <td className="py-2 px-3">
-        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+    <tr className="group border-b border-white/10 last:border-0 hover:bg-white/15 transition-colors text-xs">
+      <td className={`${thClass} font-medium text-slate-700 capitalize`}>{row.content_type.replace(/_/g, ' ')}</td>
+      <td className={thClass}>
+        <span className="px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-500 text-[10px] font-bold border border-slate-400/20">
           {row.task_type}
         </span>
       </td>
-      <td className="py-2 px-3 w-28">
-        {editing ? (
-          <Input
-            type="number"
-            min={1}
-            max={50}
-            value={cap}
-            onChange={e => setCap(e.target.value)}
-            className="h-7 w-20 text-sm"
-          />
-        ) : (
-          <span className="font-semibold tabular-nums">{row.daily_cap}</span>
-        )}
+      <td className={`${thClass} w-24`}>
+        {editing
+          ? <input type="number" min={1} max={50} value={cap} onChange={e => setCap(e.target.value)} className={`${inputCls} w-16`} />
+          : <span className="font-bold tabular-nums text-slate-800">{row.daily_cap}</span>
+        }
       </td>
-      <td className="py-2 px-3 text-xs text-muted-foreground">
-        {editing ? (
-          <Input
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="Optional note..."
-            className="h-7 text-xs"
-          />
-        ) : (
-          row.notes ?? <span className="italic text-muted-foreground/60">—</span>
-        )}
+      <td className={`${thClass} text-slate-400`}>
+        {editing
+          ? <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional note…" className={`${inputCls} w-full`} />
+          : <span className="truncate">{row.notes ?? <span className="italic opacity-50">—</span>}</span>
+        }
       </td>
-      <td className="py-2 px-3 text-right">
+      <td className={`${thClass} text-right`}>
         {editing ? (
           <div className="flex items-center gap-1 justify-end">
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={save} disabled={pending}>
-              <Check className="h-3.5 w-3.5" />
-            </Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={cancel}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            <button onClick={save} disabled={pending} className="size-6 rounded-full flex items-center justify-center bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 transition-colors">
+              <Check className="size-3" />
+            </button>
+            <button onClick={cancel} className="size-6 rounded-full flex items-center justify-center bg-slate-100/60 text-slate-500 hover:bg-slate-200/60 transition-colors">
+              <X className="size-3" />
+            </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
-            <Button
-              size="icon" variant="ghost"
-              className="h-7 w-7 text-destructive hover:text-destructive"
+          <div className="flex items-center gap-1 justify-end">
+            <button onClick={() => setEditing(true)} className="size-6 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 transition-colors">
+              <Pencil className="size-3" />
+            </button>
+            <button
               onClick={() => startTransition(() => onDelete(row.id))}
               disabled={pending}
+              className="size-6 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+              <Trash2 className="size-3" />
+            </button>
           </div>
         )}
       </td>
@@ -143,8 +122,7 @@ function AddRowForm({
   onAdd: (row: Omit<CapacityRow, 'id' | 'user_id' | 'updated_at'>) => Promise<void>;
   onCancel: () => void;
 }) {
-  const allTypes = contentTypes
-    .filter(ct => role === 'designer' ? ct.for_designer : ct.for_smo);
+  const allTypes = contentTypes.filter(ct => role === 'designer' ? ct.for_designer : ct.for_smo);
   const available = allTypes.filter(ct => !existingTypes.includes(ct.key));
   const taskType = role === 'smo' ? 'post' : 'design';
 
@@ -163,47 +141,35 @@ function AddRowForm({
     });
   }
 
+  const selectCls = 'h-6 rounded-lg border border-white/50 bg-white/60 px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/40 backdrop-blur-sm';
+
   return (
-    <tr className="border-b border-border/50 bg-muted/20">
-      <td className="py-2 px-3" colSpan={2}>
+    <tr className="border-b border-white/10 bg-blue-500/5 text-xs">
+      <td className="px-3 py-1.5" colSpan={2}>
         <div className="flex items-center gap-2">
-          <Select value={contentType} onValueChange={v => setContentType(v ?? '')}>
-            <SelectTrigger className="h-7 text-xs w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {available.map(ct => (
-                <SelectItem key={ct.key} value={ct.key} className="text-xs">
-                  {ct.label}
-                </SelectItem>
-              ))}
-              <SelectItem value="__custom__" className="text-xs">Custom type...</SelectItem>
-            </SelectContent>
-          </Select>
+          <select value={contentType} onChange={e => setContentType(e.target.value)} className={`${selectCls} w-36`}>
+            {available.map(ct => <option key={ct.key} value={ct.key}>{ct.label}</option>)}
+            <option value="__custom__">Custom type…</option>
+          </select>
           {contentType === '__custom__' && (
-            <Input
-              value={customType}
-              onChange={e => setCustomType(e.target.value)}
-              placeholder="e.g. banner"
-              className="h-7 text-xs w-28"
-            />
+            <input value={customType} onChange={e => setCustomType(e.target.value)} placeholder="e.g. banner" className={`${inputCls} w-24`} />
           )}
         </div>
       </td>
-      <td className="py-2 px-3">
-        <Input type="number" min={1} max={50} value={cap} onChange={e => setCap(e.target.value)} className="h-7 w-20 text-sm" />
+      <td className="px-3 py-1.5 w-24">
+        <input type="number" min={1} max={50} value={cap} onChange={e => setCap(e.target.value)} className={`${inputCls} w-16`} />
       </td>
-      <td className="py-2 px-3">
-        <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional note..." className="h-7 text-xs" />
+      <td className="px-3 py-1.5">
+        <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional note…" className={`${inputCls} w-full`} />
       </td>
-      <td className="py-2 px-3 text-right">
+      <td className="px-3 py-1.5 text-right">
         <div className="flex items-center gap-1 justify-end">
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={submit} disabled={pending || !finalType}>
-            <Check className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onCancel}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          <button onClick={submit} disabled={pending || !finalType} className="size-6 rounded-full flex items-center justify-center bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 transition-colors disabled:opacity-40">
+            <Check className="size-3" />
+          </button>
+          <button onClick={onCancel} className="size-6 rounded-full flex items-center justify-center bg-slate-100/60 text-slate-500 hover:bg-slate-200/60 transition-colors">
+            <X className="size-3" />
+          </button>
         </div>
       </td>
     </tr>
@@ -211,6 +177,7 @@ function AddRowForm({
 }
 
 function UserCapacityCard({ user, contentTypes, onChange }: { user: UserWithCapacity; contentTypes: ContentType[]; onChange: (updated: UserWithCapacity) => void }) {
+  const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
 
   async function handleUpdate(rowId: number, cap: number, notes: string) {
@@ -219,10 +186,7 @@ function UserCapacityCard({ user, contentTypes, onChange }: { user: UserWithCapa
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ daily_cap: cap, notes }),
     });
-    onChange({
-      ...user,
-      rows: user.rows.map(r => r.id === rowId ? { ...r, daily_cap: cap, notes } : r),
-    });
+    onChange({ ...user, rows: user.rows.map(r => r.id === rowId ? { ...r, daily_cap: cap, notes } : r) });
   }
 
   async function handleDelete(rowId: number) {
@@ -241,57 +205,75 @@ function UserCapacityCard({ user, contentTypes, onChange }: { user: UserWithCapa
     setAdding(false);
   }
 
-  const existingTypes = user.rows.map(r => r.content_type);
+  const avgCap = user.rows.length > 0
+    ? (user.rows.reduce((s, r) => s + r.daily_cap, 0) / user.rows.length).toFixed(1)
+    : null;
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-sm">{user.full_name}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role]}`}>
-            {user.role.toUpperCase()}
+    <div className="glass-panel rounded-xl overflow-hidden">
+      {/* Header — click to expand */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-2.5 bg-white/20 hover:bg-white/30 transition-colors text-left"
+      >
+        <span className="flex items-center justify-center text-slate-400">
+          {open
+            ? <ChevronDown className="size-3.5" />
+            : <ChevronRight className="size-3.5" />}
+        </span>
+        <span className="font-semibold text-sm text-slate-800 dark:text-slate-100">{user.full_name}</span>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ROLE_COLORS[user.role]}`}>
+          {user.role.toUpperCase()}
+        </span>
+        <span className="text-[10px] text-slate-400 ml-1">
+          {user.rows.length} type{user.rows.length !== 1 ? 's' : ''}
+          {avgCap ? ` · avg ${avgCap}/day` : ''}
+        </span>
+        <div className="ml-auto" onClick={e => { e.stopPropagation(); setOpen(true); setAdding(true); }}>
+          <span className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full border border-white/50 bg-white/60 text-[10px] font-semibold text-slate-600 hover:bg-white/80 transition-colors">
+            <Plus className="size-2.5" /> Add type
           </span>
-          <span className="text-xs text-muted-foreground">{user.rows.length} content types</span>
         </div>
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setAdding(true)}>
-          <Plus className="h-3 w-3" />
-          Add type
-        </Button>
-      </div>
+      </button>
 
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-border/50 text-xs text-muted-foreground">
-            <th className="text-left py-2 px-3 font-medium">Content Type</th>
-            <th className="text-left py-2 px-3 font-medium">Task Type</th>
-            <th className="text-left py-2 px-3 font-medium">Cap / Day</th>
-            <th className="text-left py-2 px-3 font-medium">Notes</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {user.rows.map(row => (
-            <CapacityRow key={row.id} row={row} onUpdate={handleUpdate} onDelete={handleDelete} />
-          ))}
-          {user.rows.length === 0 && !adding && (
-            <tr>
-              <td colSpan={5} className="text-center text-xs text-muted-foreground py-4 italic">
-                No capacity rules — using default ({user.role === 'smo' ? 10 : 3}/day)
-              </td>
-            </tr>
-          )}
-          {adding && (
-            <AddRowForm
-              userId={user.id}
-              role={user.role}
-              existingTypes={existingTypes}
-              contentTypes={contentTypes}
-              onAdd={handleAdd}
-              onCancel={() => setAdding(false)}
-            />
-          )}
-        </tbody>
-      </table>
+      {/* Expanded table */}
+      {open && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="border-b border-white/20">
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="text-left px-3 py-1.5">Content Type</th>
+                <th className="text-left px-3 py-1.5">Task Type</th>
+                <th className="text-left px-3 py-1.5">Cap / Day</th>
+                <th className="text-left px-3 py-1.5">Notes</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {user.rows.map(row => (
+                <CapacityRowItem key={row.id} row={row} onUpdate={handleUpdate} onDelete={handleDelete} />
+              ))}
+              {user.rows.length === 0 && !adding && (
+                <tr>
+                  <td colSpan={5} className="text-center text-[11px] text-slate-400 py-4 italic">
+                    No capacity rules — using default ({user.role === 'smo' ? 10 : 3}/day)
+                  </td>
+                </tr>
+              )}
+              {adding && (
+                <AddRowForm
+                  userId={user.id}
+                  role={user.role}
+                  existingTypes={user.rows.map(r => r.content_type)}
+                  contentTypes={contentTypes}
+                  onAdd={handleAdd}
+                  onCancel={() => setAdding(false)}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -307,14 +289,14 @@ export function CapacityMatrix({ initialUsers, contentTypes }: { initialUsers: U
   const smos = users.filter(u => u.role === 'smo');
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {designers.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-base font-semibold">Graphic Designers</h2>
-            <Badge variant="secondary" className="text-xs">design tasks</Badge>
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">Graphic Designers</h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-400/20">design tasks</span>
           </div>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
             {designers.map(u => (
               <UserCapacityCard key={u.id} user={u} contentTypes={contentTypes} onChange={updateUser} />
             ))}
@@ -323,12 +305,12 @@ export function CapacityMatrix({ initialUsers, contentTypes }: { initialUsers: U
       )}
 
       {smos.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-base font-semibold">SMO — Social Media Operators</h2>
-            <Badge variant="secondary" className="text-xs">post tasks</Badge>
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-200">SMO — Social Media Operators</h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-400/20">post tasks</span>
           </div>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
             {smos.map(u => (
               <UserCapacityCard key={u.id} user={u} contentTypes={contentTypes} onChange={updateUser} />
             ))}
@@ -337,9 +319,9 @@ export function CapacityMatrix({ initialUsers, contentTypes }: { initialUsers: U
       )}
 
       {users.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-12">
+        <div className="glass-panel rounded-xl p-12 text-center text-slate-400 text-sm">
           No designers or SMOs found. Invite team members first.
-        </p>
+        </div>
       )}
     </div>
   );

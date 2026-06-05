@@ -12,11 +12,9 @@ export default async function RequestTaskPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Request a Task</h1>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          Submit a content task for manager approval. You'll be notified once it's reviewed.
-        </p>
+      <div className="glass-panel rounded-xl px-5 py-3.5">
+        <h1 className="font-bold text-base text-slate-800 tracking-tight">Request a Task</h1>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Submit a content task for manager approval.</p>
       </div>
       <RequestTaskForm
         clients={(clients ?? []) as Client[]}
