@@ -77,6 +77,7 @@ interface ManagerDashboardProps {
   overdueBlocked: PipelineTask[];
   todayPostings: PipelineTask[];
   todayDesignDeadlines: PipelineTask[];
+  taskTypeRoles: Record<string, string>;
 }
 
 export function ManagerDashboard({
@@ -88,6 +89,7 @@ export function ManagerDashboard({
   overdueBlocked,
   todayPostings,
   todayDesignDeadlines,
+  taskTypeRoles,
 }: ManagerDashboardProps) {
   const router = useRouter();
 
@@ -526,6 +528,7 @@ export function ManagerDashboard({
         teamMembers={teamMembers}
         onClose={() => setSelectedTask(null)}
         onReassigned={handleReassigned}
+        taskTypeRoles={taskTypeRoles}
       />
 
       {/* Reject dialog */}

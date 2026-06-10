@@ -20,9 +20,9 @@ export interface LeaveConflictTask {
   task?: PipelineTask;
   assignee_name?: string | null;
 }
-export type TaskType = 'design' | 'post';
+export type TaskType = string;
 export type TaskPriority = 'low' | 'medium' | 'high' | 'emergency';
-export type UserRole = 'designer' | 'smo' | 'manager' | 'admin' | 'ceo' | 'hr' | 'developer';
+export type UserRole = 'designer' | 'video_editor' | 'smo' | 'manager' | 'admin' | 'ceo' | 'hr' | 'developer';
 export type ContentSource = 'sheets' | 'in_app' | 'import';
 export type LeaveStatus = 'pending' | 'approved' | 'denied';
 

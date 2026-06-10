@@ -15,10 +15,6 @@ export default async function AdminSettingsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (!profile || !['admin', 'manager'].includes(profile.role)) redirect('/');
-
   // Fetch current AI settings (server-side, no API call needed)
   const { data: aiSettings } = await supabaseAdmin
     .from('ai_settings')

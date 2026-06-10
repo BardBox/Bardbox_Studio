@@ -49,18 +49,24 @@ export async function POST(req: NextRequest) {
     if (rowData && rowData.length > 0) {
       const assigneeIds = [...new Set(rowData.map((r: { preferred_assignee_id: string }) => r.preferred_assignee_id))];
 
-      const { data: profiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, role')
-        .in('id', assigneeIds);
+      // Fetch profiles and task_types in parallel
+      const [{ data: profiles }, { data: taskTypes }] = await Promise.all([
+        supabaseAdmin.from('profiles').select('id, role').in('id', assigneeIds),
+        supabaseAdmin.from('task_types').select('key, target_role'),
+      ]);
 
       const idToRole: Record<string, string> = {};
       for (const p of profiles ?? []) idToRole[p.id] = p.role;
 
+      // DB-driven: role → task_type (reverse of target_role → key)
+      const roleToTaskType: Record<string, string> = {};
+      for (const tt of taskTypes ?? []) roleToTaskType[tt.target_role] = tt.key;
+
       for (const row of rowData as { id: number; preferred_assignee_id: string }[]) {
         const role = idToRole[row.preferred_assignee_id];
         if (!role) continue;
-        const taskType = role === 'smo' ? 'post' : 'design';
+        const taskType = roleToTaskType[role];
+        if (!taskType) continue;
         await supabaseAdmin
           .from('tasks')
           .update({ assignee_id: row.preferred_assignee_id, manually_assigned: true })

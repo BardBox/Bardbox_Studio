@@ -2,17 +2,18 @@
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Search, Plus, UserPlus, ArrowUpDown, Pencil, KeyRound, ToggleRight, ToggleLeft } from 'lucide-react';
+import { Search, Plus, UserPlus, ArrowUpDown, Pencil, KeyRound, ToggleRight, ToggleLeft, Eye } from 'lucide-react';
 import { InviteDialog } from './InviteDialog';
 import { EditUserDialog } from './EditUserDialog';
 import { ResetPasswordDialog } from './ResetPasswordDialog';
 import { CreateRoleDialog } from './CreateRoleDialog';
+import { CapacityModal, type CapacityUser } from './CapacityModal';
 
 export interface TeamUser {
   id: string;
   full_name: string;
   email: string;
-  role: 'designer' | 'smo' | 'manager' | 'admin' | 'ceo' | 'hr' | 'developer';
+  role: 'designer' | 'video_editor' | 'smo' | 'manager' | 'admin' | 'ceo' | 'hr' | 'developer';
   is_active: boolean;
   max_concurrent_tasks: number;
   daily_capacity: number;
@@ -27,25 +28,26 @@ export interface TeamUser {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  designer: 'Designer', smo: 'SMO', manager: 'Manager',
+  designer: 'Designer', video_editor: 'Video Editor', smo: 'SMO', manager: 'Manager',
   admin: 'Admin', ceo: 'CEO', hr: 'HR', developer: 'Developer',
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  designer:  'bg-blue-500/15 text-blue-700 border-blue-400/30',
-  smo:       'bg-violet-500/15 text-violet-700 border-violet-400/30',
-  manager:   'bg-amber-500/15 text-amber-700 border-amber-400/30',
-  admin:     'bg-slate-500/15 text-slate-700 border-slate-400/30',
-  ceo:       'bg-indigo-500/15 text-indigo-700 border-indigo-400/30',
-  hr:        'bg-pink-500/15 text-pink-700 border-pink-400/30',
-  developer: 'bg-emerald-500/15 text-emerald-700 border-emerald-400/30',
+  designer:     'bg-blue-500/15 text-blue-700 border-blue-400/30',
+  video_editor: 'bg-cyan-500/15 text-cyan-700 border-cyan-400/30',
+  smo:          'bg-violet-500/15 text-violet-700 border-violet-400/30',
+  manager:      'bg-amber-500/15 text-amber-700 border-amber-400/30',
+  admin:        'bg-slate-500/15 text-slate-700 border-slate-400/30',
+  ceo:          'bg-indigo-500/15 text-indigo-700 border-indigo-400/30',
+  hr:           'bg-pink-500/15 text-pink-700 border-pink-400/30',
+  developer:    'bg-emerald-500/15 text-emerald-700 border-emerald-400/30',
 };
 
 const ROLE_OPTIONS = [
-  { label: 'Designer', value: 'designer' }, { label: 'SMO', value: 'smo' },
-  { label: 'Manager', value: 'manager' },   { label: 'Admin', value: 'admin' },
-  { label: 'CEO', value: 'ceo' },           { label: 'HR', value: 'hr' },
-  { label: 'Developer', value: 'developer' },
+  { label: 'Designer', value: 'designer' },           { label: 'Video Editor', value: 'video_editor' },
+  { label: 'SMO', value: 'smo' },                     { label: 'Manager', value: 'manager' },
+  { label: 'Admin', value: 'admin' },                 { label: 'CEO', value: 'ceo' },
+  { label: 'HR', value: 'hr' },                       { label: 'Developer', value: 'developer' },
 ];
 
 export interface RoleOption { key: string; label: string; }
@@ -59,6 +61,7 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
   const [editUser, setEditUser] = useState<TeamUser | null>(null);
   const [resetUser, setResetUser] = useState<TeamUser | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [capacityUser, setCapacityUser] = useState<CapacityUser | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('role');
@@ -224,6 +227,15 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
                   </td>
                   <td className={`${tdClass} text-right`}>
                     <div className="flex items-center justify-end gap-1">
+                      {['designer', 'video_editor', 'smo'].includes(user.role) && (
+                        <button
+                          onClick={() => setCapacityUser({ id: user.id, full_name: user.full_name, role: user.role })}
+                          title="View capacity"
+                          className="size-7 rounded-full flex items-center justify-center text-slate-500 hover:text-violet-600 hover:bg-violet-500/10 transition-colors"
+                        >
+                          <Eye className="size-3.5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => setEditUser(user)}
                         title="Edit member"
@@ -247,6 +259,7 @@ export function TeamTable({ initialUsers, roles = [] }: { initialUsers: TeamUser
         </div>
       </div>
 
+      <CapacityModal user={capacityUser} onClose={() => setCapacityUser(null)} />
       <CreateRoleDialog open={createRoleOpen} onClose={() => setCreateRoleOpen(false)} onCreated={() => window.location.reload()} />
       <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onInvited={() => window.location.reload()} roles={roles} />
       <EditUserDialog

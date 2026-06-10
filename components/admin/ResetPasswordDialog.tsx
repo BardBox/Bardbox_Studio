@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Mail } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -14,58 +15,54 @@ interface ResetPasswordDialogProps {
 }
 
 export function ResetPasswordDialog({ user, onClose }: ResetPasswordDialogProps) {
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSend() {
     if (!user) return;
-    if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
-    if (password !== confirm) { toast.error('Passwords do not match'); return; }
     setLoading(true);
-    const res = await fetch(`/api/admin/users/${user.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.error ?? 'Reset failed');
-    } else {
-      toast.success(`Password reset for ${user.full_name}`);
-      setPassword('');
-      setConfirm('');
-      onClose();
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/send-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      let json: { ok?: boolean; error?: string } = {};
+      try { json = await res.json(); } catch { /* empty body */ }
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to send reset link');
+      } else {
+        toast.success(`Password reset link sent to ${user.email}`);
+        onClose();
+      }
+    } catch {
+      toast.error('Network error — please try again');
     }
     setLoading(false);
   }
 
   return (
-    <Dialog open={!!user} onOpenChange={() => { setPassword(''); setConfirm(''); onClose(); }}>
+    <Dialog open={!!user} onOpenChange={() => onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reset Password</DialogTitle>
-          <DialogDescription>Set a new password for {user?.full_name}</DialogDescription>
+          <DialogTitle>Send Password Reset Link</DialogTitle>
+          <DialogDescription>
+            A secure reset link will be emailed to the user. They will use it to set their own password.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">New Password</label>
-            <input type="password" required minLength={8} value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input" placeholder="Min 8 characters" />
+
+        <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 dark:bg-white/5 dark:border-white/10 px-4 py-3">
+          <Mail className="size-5 text-slate-400 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{user?.full_name}</p>
+            <p className="text-xs text-slate-500">{user?.email}</p>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Confirm Password</label>
-            <input type="password" required value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="input" placeholder="Repeat password" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-            <Button type="submit" disabled={loading}>{loading ? 'Resetting…' : 'Reset Password'}</Button>
-          </DialogFooter>
-        </form>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={handleSend} disabled={loading}>
+            {loading ? 'Sending…' : 'Send Reset Link'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

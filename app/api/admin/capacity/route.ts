@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { getProductionRoleKeys } from '@/lib/role-flags';
 
 async function getActor() {
   const cookieStore = await cookies();
@@ -17,15 +18,29 @@ async function getActor() {
   return user;
 }
 
-// GET — all designers + SMOs with their capacity rows
-export async function GET() {
+// GET — all production users with their capacity rows, or a single user via ?user_id=xxx
+export async function GET(req: NextRequest) {
   const actor = await getActor();
   if (!actor) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const userId = req.nextUrl.searchParams.get('user_id');
+
+  if (userId) {
+    // Single-user mode: return just this user's capacity rows
+    const { data: rows, error } = await supabaseAdmin
+      .from('user_content_capacity')
+      .select('id, user_id, content_type, task_type, daily_cap, notes, updated_at')
+      .eq('user_id', userId)
+      .order('task_type')
+      .order('content_type');
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(rows ?? []);
+  }
 
   const { data: profiles, error: profErr } = await supabaseAdmin
     .from('profiles')
     .select('id, full_name, role, is_active')
-    .in('role', ['designer', 'smo'])
+    .in('role', await getProductionRoleKeys(supabaseAdmin))
     .eq('is_active', true)
     .order('role')
     .order('full_name');

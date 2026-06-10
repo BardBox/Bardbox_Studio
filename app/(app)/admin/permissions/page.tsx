@@ -17,10 +17,6 @@ export default async function PermissionsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (!profile || profile.role !== 'admin') redirect('/manager');
-
   // Load roles dynamically so any role added via Roles page appears here automatically
   const [{ data: rolesRows }, { data: permRows }] = await Promise.all([
     supabaseAdmin.from('roles').select('key').order('created_at'),

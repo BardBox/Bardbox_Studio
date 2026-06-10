@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { aiGenerate, RateLimitError } from '@/lib/ai';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 
 export const runtime = 'nodejs';
 
@@ -39,11 +40,15 @@ export async function POST(req: NextRequest) {
   }
 
   const { task_type, platform = '', content_type = '', brief = '', deadline = '' } = body;
-  if (task_type !== 'design' && task_type !== 'post') {
-    return NextResponse.json({ error: 'task_type must be design or post' }, { status: 400 });
+  if (!task_type) {
+    return NextResponse.json({ error: 'task_type is required' }, { status: 400 });
   }
 
-  const targetRole = task_type === 'design' ? 'designer' : 'smo';
+  const taskTypeRoles = await getTaskTypeRoles(supabaseAdmin);
+  const targetRole = taskTypeRoles[task_type];
+  if (!targetRole) {
+    return NextResponse.json({ error: `unknown task_type: ${task_type}` }, { status: 400 });
+  }
 
   // Fetch team load + leave status in parallel
   const [{ data: loadRows, error: loadErr }, { data: leaveRows, error: leaveErr }] =
@@ -94,7 +99,7 @@ export async function POST(req: NextRequest) {
 A new task needs to be assigned to the most suitable team member.
 
 TASK DETAILS:
-- Type: ${task_type} (${task_type === 'design' ? 'graphic design' : 'social media posting'})
+- Type: ${task_type} (${targetRole})
 - Platform: ${platform || 'unspecified'}
 - Content type: ${content_type || 'unspecified'}
 ${deadlineStr}

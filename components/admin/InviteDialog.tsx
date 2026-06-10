@@ -161,7 +161,7 @@ export function InviteDialog({ open, onClose, onInvited, defaultRole, roles = []
                   <input type="date" value={form.date_of_joining} onChange={(e) => set('date_of_joining', e.target.value)}
                     className="input" />
                 </Field>
-                {form.role === 'designer' && (
+                {(form.role === 'designer' || form.role === 'video_editor') && (
                   <Field label="Design Specialty">
                     <Select value={form.specialty} onValueChange={(v) => set('specialty', v === '__both__' ? '' : (v ?? ''))}>
                       <SelectTrigger><SelectValue placeholder="Graphic Designer (default)" /></SelectTrigger>

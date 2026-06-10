@@ -35,6 +35,7 @@ export function CreateContentDialog({ open, defaultDate, onClose }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  const [isEmergency, setIsEmergency] = useState(false);
   const [form, setForm] = useState({
     client_name: '',
     platform: '',
@@ -67,15 +68,17 @@ export function CreateContentDialog({ open, defaultDate, onClose }: Props) {
           ...form,
           posting_date: effectiveDate,
           posting_time: `${form.posting_time}:00`,
+          is_emergency: isEmergency,
         }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? 'Failed to create content');
       }
-      toast.success('Content created — tasks auto-assigned.');
+      toast.success(isEmergency ? 'Emergency task created — existing tasks rescheduled.' : 'Content created — tasks auto-assigned.');
       router.refresh();
       onClose();
+      setIsEmergency(false);
       setForm({ client_name: '', platform: '', content_type: '', brief: '', caption: '', hashtags: '', posting_date: '', posting_time: '10:00' });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Something went wrong.');
@@ -177,6 +180,34 @@ export function CreateContentDialog({ open, defaultDate, onClose }: Props) {
               onChange={(e) => set('hashtags', e.target.value)}
             />
           </div>
+
+          {/* Emergency toggle */}
+          <button
+            type="button"
+            onClick={() => setIsEmergency(v => !v)}
+            className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors text-left ${
+              isEmergency
+                ? 'border-red-400 bg-red-50 dark:bg-red-950/30 dark:border-red-700'
+                : 'border-border bg-muted/40 hover:bg-muted/60'
+            }`}
+          >
+            <span className={`text-xl ${isEmergency ? 'animate-pulse' : ''}`}>🚨</span>
+            <div>
+              <p className={`text-sm font-semibold ${isEmergency ? 'text-red-700 dark:text-red-400' : 'text-foreground'}`}>
+                Emergency Task
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isEmergency
+                  ? 'This is marked as emergency — designer\'s existing tasks will shift by 1 working day'
+                  : 'Mark as emergency to auto-reschedule the assigned designer\'s tasks'}
+              </p>
+            </div>
+            <div className={`ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+              isEmergency ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40'
+            }`}>
+              {isEmergency && <div className="w-2 h-2 rounded-full bg-white" />}
+            </div>
+          </button>
         </div>
 
         <DialogFooter>
@@ -184,8 +215,9 @@ export function CreateContentDialog({ open, defaultDate, onClose }: Props) {
           <Button
             disabled={!form.platform || !form.content_type || !(defaultDate ?? form.posting_date) || loading}
             onClick={handleSubmit}
+            className={isEmergency ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
           >
-            {loading ? 'Creating...' : 'Create Content'}
+            {loading ? (isEmergency ? 'Creating & Rescheduling...' : 'Creating...') : (isEmergency ? '🚨 Create Emergency Task' : 'Create Content')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,7 +1,9 @@
-﻿import { cookies } from 'next/headers';
+import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { ManagerDashboard } from '@/components/manager/ManagerDashboard';
 import { CreateTaskDialog } from '@/components/manager/CreateTaskDialog';
+import { getProductionRoleKeys } from '@/lib/role-flags';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 import type {
   PipelineSummary, PipelineTask, TeamMember, UserProfile, Client,
 } from '@/lib/types';
@@ -14,13 +16,16 @@ export default async function ManagerPage() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
 
-  // IST = UTC+5:30; compute today in IST regardless of server timezone
   const nowUtc = new Date();
   const istNow = new Date(nowUtc.getTime() + (5 * 60 + 30) * 60_000);
   const todayStr = `${istNow.getUTCFullYear()}-${String(istNow.getUTCMonth() + 1).padStart(2, '0')}-${String(istNow.getUTCDate()).padStart(2, '0')}`;
-  // IST midnight in UTC for deadline range queries
   const istDayStart = `${todayStr}T00:00:00+05:30`;
   const istDayEnd   = `${todayStr}T23:59:59+05:30`;
+
+  const [productionRoles, taskTypeRoles] = await Promise.all([
+    getProductionRoleKeys(supabase),
+    getTaskTypeRoles(supabase),
+  ]);
 
   const [
     { data: summary },
@@ -35,52 +40,15 @@ export default async function ManagerPage() {
   ] = await Promise.all([
     supabase.from('pipeline_summary').select('*').single(),
     supabase.from('team_load_report').select('*'),
-    supabase
-      .from('profiles')
-      .select('id, full_name, role, max_concurrent_tasks')
-      .in('role', ['designer', 'smo'])
+    supabase.from('profiles').select('id, full_name, role, max_concurrent_tasks')
+      .in('role', productionRoles.length > 0 ? productionRoles : ['__none__'])
       .eq('is_active', true),
     supabase.from('clients').select('*').eq('is_active', true).order('name'),
-
-    // Pending approval: submitted tasks, ordered by deadline urgency
-    supabase
-      .from('pending_approvals')
-      .select('*')
-      .limit(30),
-
-    // Currently working_on_it — what each person is working on right now
-    supabase
-      .from('task_pipeline_health')
-      .select('*')
-      .eq('task_status', 'working_on_it')
-      .order('internal_deadline', { ascending: true }),
-
-    // Overdue or blocked tasks needing manager attention
-    supabase
-      .from('task_pipeline_health')
-      .select('*')
-      .or('pressure_level.eq.overdue,task_status.eq.blocked')
-      .not('task_status', 'in', '("done","approved")')
-      .order('internal_deadline', { ascending: true })
-      .limit(30),
-
-    // Posts going live TODAY
-    supabase
-      .from('task_pipeline_health')
-      .select('*')
-      .eq('task_type', 'post')
-      .eq('posting_date', todayStr)
-      .order('posting_time', { ascending: true }),
-
-    // Design tasks whose deadline is TODAY (in IST)
-    supabase
-      .from('task_pipeline_health')
-      .select('*')
-      .eq('task_type', 'design')
-      .gte('internal_deadline', istDayStart)
-      .lte('internal_deadline', istDayEnd)
-      .not('task_status', 'in', '("done","approved")')
-      .order('internal_deadline', { ascending: true }),
+    supabase.from('pending_approvals').select('*').limit(30),
+    supabase.from('task_pipeline_health').select('*').eq('task_status', 'working_on_it').order('internal_deadline', { ascending: true }),
+    supabase.from('task_pipeline_health').select('*').or('pressure_level.eq.overdue,task_status.eq.blocked').not('task_status', 'in', '("done","approved")').order('internal_deadline', { ascending: true }).limit(30),
+    supabase.from('task_pipeline_health').select('*').eq('task_type', 'post').eq('posting_date', todayStr).order('posting_time', { ascending: true }),
+    supabase.from('task_pipeline_health').select('*').in('task_type', ['design','video']).gte('internal_deadline', istDayStart).lte('internal_deadline', istDayEnd).not('task_status', 'in', '("done","approved")').order('internal_deadline', { ascending: true }),
   ]);
 
   return (
@@ -101,6 +69,7 @@ export default async function ManagerPage() {
         overdueBlocked={(overdueBlocked ?? []) as PipelineTask[]}
         todayPostings={(todayPostings ?? []) as PipelineTask[]}
         todayDesignDeadlines={(todayDesignDeadlines ?? []) as PipelineTask[]}
+        taskTypeRoles={taskTypeRoles}
       />
     </div>
   );

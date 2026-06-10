@@ -63,7 +63,7 @@ export function RequestTaskForm({ clients, userId }: { clients: Client[]; userId
         {/* Client */}
         <div>
           <FieldLabel required>Client</FieldLabel>
-          <Select value={form.client_name || undefined} onValueChange={(v) => set('client_name', v ?? '')}>
+          <Select value={form.client_name} onValueChange={(v) => set('client_name', v ?? '')}>
             <SelectTrigger className={triggerCls}><SelectValue placeholder="Select client…" /></SelectTrigger>
             <SelectContent>
               {clients.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
@@ -75,7 +75,7 @@ export function RequestTaskForm({ clients, userId }: { clients: Client[]; userId
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel required>Platform</FieldLabel>
-            <Select value={form.platform || undefined} onValueChange={(v) => set('platform', v ?? '')}>
+            <Select value={form.platform} onValueChange={(v) => set('platform', v ?? '')}>
               <SelectTrigger className={triggerCls}><SelectValue placeholder="Select platform…" /></SelectTrigger>
               <SelectContent>
                 {PLATFORMS.map((p) => <SelectItem key={p} value={p} className="capitalize">{p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>)}
@@ -84,7 +84,7 @@ export function RequestTaskForm({ clients, userId }: { clients: Client[]; userId
           </div>
           <div>
             <FieldLabel required>Content Type</FieldLabel>
-            <Select value={form.content_type || undefined} onValueChange={(v) => set('content_type', v ?? '')}>
+            <Select value={form.content_type} onValueChange={(v) => set('content_type', v ?? '')}>
               <SelectTrigger className={triggerCls}><SelectValue placeholder="Select type…" /></SelectTrigger>
               <SelectContent>
                 {CONTENT_TYPES.map((t) => <SelectItem key={t} value={t} className="capitalize">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}

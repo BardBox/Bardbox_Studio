@@ -21,7 +21,7 @@ interface EditUserDialogProps {
 }
 
 const BLANK_EXTRA = {
-  employee_id: '', designation: '', date_of_joining: '',
+  email: '', employee_id: '', designation: '', date_of_joining: '',
   employment_type: '', date_of_birth: '', emergency_contact: '',
   specialty: '',
 };
@@ -35,6 +35,7 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
   useEffect(() => {
     if (user) setForm({
       full_name:       user.full_name,
+      email:           user.email ?? '',
       role:            user.role,
       daily_capacity:  String(user.daily_capacity ?? 3),
       employee_id:          user.employee_id       ?? '',
@@ -55,24 +56,39 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
     e.preventDefault();
     if (!user) return;
     setLoading(true);
+    const newEmail = form.email.trim().toLowerCase();
+    const payload: Record<string, unknown> = {
+      full_name:         form.full_name,
+      role:              form.role,
+      employee_id:       form.employee_id       || null,
+      designation:       form.designation       || null,
+      date_of_joining:   form.date_of_joining   || null,
+      employment_type:   form.employment_type   || null,
+      date_of_birth:     form.date_of_birth     || null,
+      emergency_contact: form.emergency_contact || null,
+      specialty:         form.specialty         || null,
+    };
+    // only include email when it actually changed
+    if (newEmail && newEmail !== (user.email ?? '').toLowerCase()) {
+      payload.email = newEmail;
+    }
     const res = await fetch(`/api/admin/users/${user.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        daily_capacity: Number(form.daily_capacity),
-        date_of_joining:      form.date_of_joining || null,
-        date_of_birth:        form.date_of_birth   || null,
-        specialty:            form.specialty        || null,
-      }),
+      body: JSON.stringify(payload),
     });
     const json = await res.json();
     if (!res.ok) {
       toast.error(json.error ?? 'Update failed');
     } else {
-      toast.success('User updated');
+      if (json.emailWarning) {
+        toast.warning(json.emailWarning);
+      } else {
+        toast.success('User updated');
+      }
       onUpdated({
         full_name:            form.full_name,
+        email:                form.email.trim().toLowerCase(),
         role:                 form.role as TeamUser['role'],
         daily_capacity:  Number(form.daily_capacity),
         employee_id:          form.employee_id       || null,
@@ -99,18 +115,26 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
           {/* Basic Info */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Basic Info</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Full Name *">
-                <input required value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className="input" />
-              </Field>
-              <Field label="Employee ID">
-                <input value={form.employee_id} onChange={(e) => set('employee_id', e.target.value)}
-                  className="input" placeholder="BB-001" />
-              </Field>
-              <Field label="Designation" className="col-span-2">
-                <input value={form.designation} onChange={(e) => set('designation', e.target.value)}
-                  className="input" placeholder="Senior Designer" />
-              </Field>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Full Name *">
+                  <input required value={form.full_name} onChange={(e) => set('full_name', e.target.value)} className="input" />
+                </Field>
+                <Field label="Employee ID">
+                  <input value={form.employee_id} onChange={(e) => set('employee_id', e.target.value)}
+                    className="input" placeholder="BB-001" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Email *">
+                  <input type="email" required value={form.email} onChange={(e) => set('email', e.target.value)}
+                    className="input" placeholder="user@example.com" />
+                </Field>
+                <Field label="Designation">
+                  <input value={form.designation} onChange={(e) => set('designation', e.target.value)}
+                    className="input" placeholder="Senior Designer" />
+                </Field>
+              </div>
             </div>
           </section>
 
@@ -139,7 +163,7 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
                   </SelectContent>
                 </Select>
               </Field>
-              {['designer'].includes(form.role) && (
+              {['designer', 'video_editor'].includes(form.role) && (
                 <Field label="Design Specialty">
                   <Select value={form.specialty || ''} onValueChange={(v) => set('specialty', v === '__both__' ? '' : (v ?? ''))}>
                     <SelectTrigger><SelectValue placeholder="Both (generalist)" /></SelectTrigger>
@@ -157,11 +181,6 @@ export function EditUserDialog({ user, onClose, onUpdated, roles = [] }: EditUse
               <Field label="Date of Joining">
                 <input type="date" value={form.date_of_joining} onChange={(e) => set('date_of_joining', e.target.value)}
                   className="input" />
-              </Field>
-
-              <Field label="Daily Capacity (tasks/day)">
-                <input type="number" min={1} max={20} value={form.daily_capacity}
-                  onChange={(e) => set('daily_capacity', e.target.value)} className="input" />
               </Field>
             </div>
           </section>

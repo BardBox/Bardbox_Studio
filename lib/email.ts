@@ -60,3 +60,50 @@ export async function sendWelcomeEmail({
 
   return { sent: true };
 }
+
+export async function sendPasswordResetEmail({
+  to,
+  fullName,
+  newPassword,
+  appUrl,
+}: {
+  to: string;
+  fullName: string;
+  newPassword: string;
+  appUrl: string;
+}) {
+  const transport = getTransport();
+  if (!transport) {
+    console.warn('[email] EMAIL_HOST/USER/PASS not set — skipping password reset email');
+    return { skipped: true };
+  }
+
+  const from = process.env.EMAIL_FROM ?? process.env.EMAIL_USER;
+
+  await transport.sendMail({
+    from: `"Bardbox Studio" <${from}>`,
+    to,
+    subject: 'Your Bardbox Studio password has been reset',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#111">Password Reset — Bardbox Studio</h2>
+        <p>Hi ${fullName},</p>
+        <p>Your password has been reset by an administrator. Use the temporary credentials below to sign in, then change your password.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0">
+          <tr>
+            <td style="padding:8px;font-weight:bold;background:#f4f4f5;border:1px solid #e4e4e7">Email</td>
+            <td style="padding:8px;border:1px solid #e4e4e7">${to}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;font-weight:bold;background:#f4f4f5;border:1px solid #e4e4e7">New Password</td>
+            <td style="padding:8px;font-family:monospace;letter-spacing:1px;border:1px solid #e4e4e7">${newPassword}</td>
+          </tr>
+        </table>
+        <a href="${appUrl}/login" style="display:inline-block;padding:10px 20px;background:#111;color:#fff;text-decoration:none;border-radius:6px">Sign in now</a>
+        <p style="margin-top:24px;color:#666;font-size:13px">Please change your password after signing in.</p>
+      </div>
+    `,
+  });
+
+  return { sent: true };
+}

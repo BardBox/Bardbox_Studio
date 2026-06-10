@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { CeoDashboard } from '@/components/ceo/CeoDashboard';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 import type { PipelineTask, PipelineSummary, TeamMember, ThroughputRow, ClientHealth } from '@/lib/types';
 
 export default async function CeoPage() {
   const supabase = await createClient();
 
-  const [summary, teamLoad, overdue, throughput, clientHealth, pendingApprovals] =
+  const [summary, teamLoad, overdue, throughput, clientHealth, pendingApprovals, taskTypeRoles] =
     await Promise.all([
       supabase.from('pipeline_summary').select('*').single(),
       supabase.from('team_load_report').select('*'),
@@ -20,6 +21,7 @@ export default async function CeoPage() {
         .from('pending_approvals')
         .select('*')
         .order('internal_deadline', { ascending: true }),
+      getTaskTypeRoles(supabase),
     ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function CeoPage() {
       throughput={(throughput.data ?? []) as ThroughputRow[]}
       clientHealth={(clientHealth.data ?? []) as ClientHealth[]}
       pendingApprovals={(pendingApprovals.data ?? []) as PipelineTask[]}
+      taskTypeRoles={taskTypeRoles}
     />
   );
 }

@@ -11,7 +11,7 @@ interface CapacityRow {
 
 interface UserWithCapacity {
   id: string; full_name: string;
-  role: 'designer' | 'smo'; is_active: boolean;
+  role: 'designer' | 'video_editor' | 'smo'; is_active: boolean;
   rows: CapacityRow[];
 }
 

@@ -11,13 +11,14 @@ import {
 } from '@/components/ui/dialog';
 import type { PipelineTask, UserProfile, UserRole } from '@/lib/types';
 import {
-  Clock, Calendar, AlertTriangle, ListChecks, Users, Zap, Download,
+  Clock, Calendar, AlertTriangle, ListChecks, Users, Zap, Download, Plus,
   Shuffle, ChevronUp, ChevronDown, ChevronsUpDown, Filter, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn, statusLabel } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { TaskDetailPanel } from '@/components/shared/TaskDetailPanel';
 import { ExportTasksModal } from '@/components/manager/ExportTasksModal';
+import { CreateContentDialog } from '@/components/content/CreateContentDialog';
 
 /* ── Avatar helpers ─────────────────────────────────────────── */
 const AVATAR_COLORS = [
@@ -104,6 +105,7 @@ interface Props {
   team: UserProfile[];
   clients: string[];
   userRole: UserRole;
+  taskTypeRoles: Record<string, string>;
 }
 
 interface CapacityEntry {
@@ -187,7 +189,7 @@ function SortIcon({ dir }: { dir: SortDir }) {
 const PAGE_SIZE = 25;
 
 /* ── Main component ─────────────────────────────────────────── */
-export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) {
+export function AllTasksTable({ initialTasks, team, clients, userRole, taskTypeRoles }: Props) {
   const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [panelTask, setPanelTask] = useState<PipelineTask | null>(null);
@@ -198,6 +200,7 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
   const [loadingCapacity, setLoadingCapacity] = useState(false);
   const [activeQuickFilters, setActiveQuickFilters] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [redistributeOpen, setRedistributeOpen] = useState(false);
   const [redistributing, setRedistributing] = useState(false);
   const [page, setPage] = useState(0);
@@ -303,11 +306,12 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
     [...new Set(initialTasks.map(t => t.platform))].map(p => ({ label: p, value: p })),
   [initialTasks]);
 
+  const productionRoles = useMemo(() => Object.values(taskTypeRoles), [taskTypeRoles]);
   const assigneeOpts = useMemo(() =>
     team
-      .filter(m => m.role === 'designer')
+      .filter(m => productionRoles.includes(m.role))
       .map(m => ({ label: m.full_name, value: m.full_name })),
-  [team]);
+  [team, productionRoles]);
 
   const smoOpts = useMemo(() =>
     team
@@ -440,22 +444,35 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
           )}>
           Clear Filters
         </button>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setRedistributeOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/50 border border-white/60 text-slate-500 hover:text-slate-700 hover:bg-white/70 transition-all dark:bg-white/10 dark:border-white/20 dark:text-slate-400"
-          >
-            <Shuffle className="h-3 w-3" />
-            Redistribute
-          </button>
-          <button
-            onClick={() => setExportOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/50 border border-white/60 text-slate-500 hover:text-slate-700 hover:bg-white/70 transition-all dark:bg-white/10 dark:border-white/20 dark:text-slate-400"
-          >
-            <Download className="h-3 w-3" />
-            Export Excel
-          </button>
-        </div>
+        {(['manager', 'admin', 'ceo', 'smo'] as UserRole[]).includes(userRole) && tasks.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setRedistributeOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/50 border border-white/60 text-slate-500 hover:text-slate-700 hover:bg-white/70 transition-all dark:bg-white/10 dark:border-white/20 dark:text-slate-400"
+            >
+              <Shuffle className="h-3 w-3" />
+              Redistribute
+            </button>
+            <button
+              onClick={() => setExportOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/50 border border-white/60 text-slate-500 hover:text-slate-700 hover:bg-white/70 transition-all dark:bg-white/10 dark:border-white/20 dark:text-slate-400"
+            >
+              <Download className="h-3 w-3" />
+              Export Excel
+            </button>
+          </div>
+        )}
+        {!(['manager', 'admin', 'ceo', 'smo'] as UserRole[]).includes(userRole) && (
+          <div className="ml-auto">
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Content
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Glass table */}
@@ -533,14 +550,16 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
                       {statusLabel(t.task_status)}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => openReassign(t)}
-                      className="text-[10px] font-bold px-3 py-1 rounded-full bg-slate-800/90 text-white hover:bg-slate-700 transition-colors"
-                    >
-                      Reassign
-                    </button>
-                  </td>
+                  {(['manager', 'admin', 'ceo', 'smo'] as UserRole[]).includes(userRole) && (
+                    <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => openReassign(t)}
+                        className="text-[10px] font-bold px-3 py-1 rounded-full bg-slate-800/90 text-white hover:bg-slate-700 transition-colors"
+                      >
+                        Reassign
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -652,9 +671,8 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
             </SelectTrigger>
             <SelectContent>
               {team.filter(m => {
-                const roleMap: Record<string, string> = { design: 'designer', post: 'smo' };
                 return reassignTarget
-                  ? m.role === roleMap[reassignTarget.task_type] || ['manager', 'admin'].includes(m.role)
+                  ? m.role === taskTypeRoles[reassignTarget.task_type] || ['manager', 'admin'].includes(m.role)
                   : true;
               }).map(m => {
                 const entry = capacityLoad.find(e => e.user_id === m.id);
@@ -702,6 +720,11 @@ export function AllTasksTable({ initialTasks, team, clients, userRole }: Props) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateContentDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </div>
   );
 }

@@ -3,14 +3,10 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { aiChat } from '@/lib/ai';
+import { getProductionRoleKeys } from '@/lib/role-flags';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 
 export const runtime = 'nodejs';
-
-const VIDEO_TYPES = new Set(['reel', 'video', 'youtube']);
-
-function requiredSpecialty(contentType: string): 'video_editor' | null {
-  return VIDEO_TYPES.has(contentType.toLowerCase()) ? 'video_editor' : null;
-}
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -36,22 +32,13 @@ export async function POST(req: NextRequest) {
   // Fetch tasks with content_type
   const { data: tasks, error } = await supabaseAdmin
     .from('task_pipeline_health')
-    .select('task_id, task_type, internal_deadline, task_status, assignee_id, assignee_name, client_name, platform, content_type, posting_date')
+    .select('task_id, task_type, internal_deadline, task_status, assignee_id, assignee_name, assignee_role, client_name, platform, content_type, posting_date')
     .in('task_id', task_ids);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!tasks?.length) return NextResponse.json({ suggestions: [], all_clear: true });
 
   const assigneeIds = [...new Set(tasks.map(t => t.assignee_id).filter((id): id is string => !!id))];
-
-  // Fetch assignee specialties
-  const { data: assigneeProfiles } = await supabaseAdmin
-    .from('profiles')
-    .select('id, specialty, role')
-    .in('id', assigneeIds.length > 0 ? assigneeIds : ['00000000-0000-0000-0000-000000000000']);
-
-  const specialtyMap: Record<string, string | null> = {};
-  for (const p of assigneeProfiles ?? []) specialtyMap[p.id] = p.specialty;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -107,11 +94,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch ALL active designers to check free capacity for proactive suggestions
+  const [productionRoles, taskTypeRoles] = await Promise.all([
+    getProductionRoleKeys(supabaseAdmin),
+    getTaskTypeRoles(supabaseAdmin),
+  ]);
   const { data: allDesigners } = await supabaseAdmin
     .from('profiles')
     .select('id, full_name, specialty, role')
     .eq('is_active', true)
-    .in('role', ['designer', 'smo']);
+    .in('role', productionRoles.length > 0 ? productionRoles : ['__none__']);
 
   const { data: allWorkload } = await supabaseAdmin
     .from('team_load_report')
@@ -150,38 +141,33 @@ export async function POST(req: NextRequest) {
     const deadlineDate = task.internal_deadline.slice(0, 10);
     const hoursUntil = (new Date(task.internal_deadline).getTime() - Date.now()) / 3_600_000;
     const contentType = (task.content_type ?? '').toLowerCase();
-    const reqSpecialty = task.task_type === 'design' ? requiredSpecialty(contentType) : null;
+    const expectedRole = taskTypeRoles[task.task_type];
 
     if (!task.assignee_id) continue;
 
-    // 1. Skill mismatch: reel/video assigned to graphic-only designer
-    if (reqSpecialty && specialtyMap[task.assignee_id] !== null) {
-      const assignedSpec = specialtyMap[task.assignee_id];
-      if (assignedSpec && assignedSpec !== reqSpecialty) {
-        // Find a better match
-        const betterMatch = (allDesigners ?? []).find(d =>
-          d.role === 'designer' &&
-          (d.specialty === reqSpecialty || d.specialty === null) &&
-          d.id !== task.assignee_id &&
-          (workloadMap[d.id]?.active_total ?? 0) < (workloadMap[d.id]?.max_concurrent_tasks ?? 10)
-        );
-        conflicts.push({
-          task_id: task.task_id,
-          task_type: task.task_type,
-          assignee_id: task.assignee_id,
-          assignee_name: task.assignee_name ?? 'Unknown',
-          client: task.client_name ?? '',
-          content_type: contentType,
-          posting_date: task.posting_date,
-          deadline: task.internal_deadline,
-          conflict_type: 'skill_mismatch',
-          assigned_specialty: assignedSpec,
-          required_specialty: reqSpecialty,
-          suggested_assignee_name: betterMatch?.full_name,
-          hours_until_deadline: hoursUntil,
-        });
-        continue;
-      }
+    // 1. Role mismatch: task assigned to someone with the wrong role
+    if (expectedRole && task.assignee_role && task.assignee_role !== expectedRole) {
+      const betterMatch = (allDesigners ?? []).find(d =>
+        d.role === expectedRole &&
+        d.id !== task.assignee_id &&
+        (workloadMap[d.id]?.active_total ?? 0) < (workloadMap[d.id]?.max_concurrent_tasks ?? 10)
+      );
+      conflicts.push({
+        task_id: task.task_id,
+        task_type: task.task_type,
+        assignee_id: task.assignee_id,
+        assignee_name: task.assignee_name ?? 'Unknown',
+        client: task.client_name ?? '',
+        content_type: contentType,
+        posting_date: task.posting_date,
+        deadline: task.internal_deadline,
+        conflict_type: 'skill_mismatch',
+        assigned_specialty: task.assignee_role,
+        required_specialty: expectedRole,
+        suggested_assignee_name: betterMatch?.full_name,
+        hours_until_deadline: hoursUntil,
+      });
+      continue;
     }
 
     // 2. Leave overlap

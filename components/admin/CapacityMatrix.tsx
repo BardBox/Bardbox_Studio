@@ -17,7 +17,7 @@ interface CapacityRow {
 interface UserWithCapacity {
   id: string;
   full_name: string;
-  role: 'designer' | 'smo';
+  role: 'designer' | 'video_editor' | 'smo';
   is_active: boolean;
   rows: CapacityRow[];
 }
@@ -116,13 +116,13 @@ function AddRowForm({
   onCancel,
 }: {
   userId: string;
-  role: 'designer' | 'smo';
+  role: 'designer' | 'video_editor' | 'smo';
   existingTypes: string[];
   contentTypes: ContentType[];
   onAdd: (row: Omit<CapacityRow, 'id' | 'user_id' | 'updated_at'>) => Promise<void>;
   onCancel: () => void;
 }) {
-  const allTypes = contentTypes.filter(ct => role === 'designer' ? ct.for_designer : ct.for_smo);
+  const allTypes = contentTypes.filter(ct => (role === 'designer' || role === 'video_editor') ? ct.for_designer : ct.for_smo);
   const available = allTypes.filter(ct => !existingTypes.includes(ct.key));
   const taskType = role === 'smo' ? 'post' : 'design';
 

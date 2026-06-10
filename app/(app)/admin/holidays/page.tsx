@@ -15,10 +15,6 @@ export default async function HolidaysPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (!profile || !['admin', 'manager'].includes(profile.role)) redirect('/');
-
   const { data: holidays } = await supabaseAdmin
     .from('public_holidays')
     .select('id, holiday_date, name')

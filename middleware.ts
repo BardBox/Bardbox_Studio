@@ -9,11 +9,30 @@ const ROLE_HOME: Record<string, string> = {
   ceo:       '/ceo',
   hr:        '/hr',
   admin:     '/manager',
-  developer: '/manager',
+  developer: '/developer',
 };
 
 // Always accessible to any authenticated user regardless of role
 const ALWAYS_ALLOWED = ['/profile', '/request-task', '/set-password'];
+
+async function getDbRoutes(role: string): Promise<string[]> {
+  try {
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/role_permissions?role=eq.${encodeURIComponent(role)}&enabled=eq.true&select=route`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const rows: { route: string }[] = await res.json();
+    return rows.map((r) => r.route);
+  } catch {
+    return [];
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -46,22 +65,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(ROLE_HOME[role] ?? '/login', request.url));
   }
 
-  // Fetch dynamic route permissions from DB (admin-controlled)
-  let allowedRoutes: string[] = [];
-  try {
-    const { data: perms } = await supabase
-      .from('role_permissions')
-      .select('route')
-      .eq('role', role)
-      .eq('enabled', true);
-    allowedRoutes = perms?.map((p: { route: string }) => p.route) ?? [];
-  } catch {
-    // ignore
-  }
+  // Hardcoded defaults — always included regardless of DB state
+  const defaultRoutes: string[] = ROLE_DEFAULT_ROUTES[role] ?? [];
 
-  // Fall back to hardcoded defaults if table not seeded yet
-  if (allowedRoutes.length === 0) {
-    allowedRoutes = ROLE_DEFAULT_ROUTES[role] ?? [];
+  // DB-configured routes via direct REST fetch (service role — bypasses RLS)
+  const dbRoutes = await getDbRoutes(role);
+
+  const allowedRoutes = [...new Set([...defaultRoutes, ...dbRoutes])];
+
+  // Always allow the role's own home route — prevents redirect loops
+  const home = ROLE_HOME[role];
+  if (home && (pathname === home || pathname.startsWith(home + '/'))) {
+    return response;
   }
 
   const isAllowed = allowedRoutes.some(
@@ -69,7 +84,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (!isAllowed) {
-    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? '/login', request.url));
+    return NextResponse.redirect(new URL(home ?? '/login', request.url));
   }
 
   return response;

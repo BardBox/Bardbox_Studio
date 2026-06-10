@@ -22,20 +22,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!profile) redirect('/login');
 
-  let enabledRoutes: string[] = [];
+  // Always start with hardcoded defaults so critical nav items are never lost
+  let enabledRoutes: string[] = ROLE_DEFAULT_ROUTES[profile.role] ?? [];
   try {
     const { data: rolePerms } = await supabase
       .from('role_permissions')
-      .select('route')
-      .eq('role', profile.role)
-      .eq('enabled', true);
-    enabledRoutes = rolePerms?.map((r: { route: string }) => r.route) ?? [];
+      .select('route, enabled')
+      .eq('role', profile.role);
+    if (rolePerms && rolePerms.length > 0) {
+      const dbRoutes = rolePerms
+        .filter((r: { route: string; enabled: boolean }) => r.enabled)
+        .map((r: { route: string }) => r.route);
+      enabledRoutes = [...new Set([...enabledRoutes, ...dbRoutes])];
+    }
   } catch {
     // ignore
-  }
-  // Fall back to hardcoded defaults if DB returned nothing
-  if (enabledRoutes.length === 0) {
-    enabledRoutes = ROLE_DEFAULT_ROUTES[profile.role] ?? [];
   }
   const nav = buildNav(enabledRoutes);
 

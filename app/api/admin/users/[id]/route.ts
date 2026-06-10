@@ -31,7 +31,16 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { password, ...profileFields } = body;
+  const { email, ...profileFields } = body;
+
+  let emailWarning: string | null = null;
+  if (email) {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { email });
+    if (error) {
+      console.error('Email update failed (non-fatal):', error.message);
+      emailWarning = `Profile saved, but email could not be updated: ${error.message}`;
+    }
+  }
 
   if (Object.keys(profileFields).length > 0) {
     const allowed = [
@@ -45,8 +54,6 @@ export async function PATCH(
         .filter(([k]) => allowed.includes(k))
         .map(([k, v]) => [k, DATE_FIELDS.includes(k) && v === '' ? null : v])
     );
-    // Migrate legacy role values that no longer exist in the check constraint
-    if (filtered.role === 'video_editor') filtered.role = 'designer';
     if (Object.keys(filtered).length > 0) {
       const { error } = await supabaseAdmin
         .from('profiles').update(filtered).eq('id', id);
@@ -54,10 +61,5 @@ export async function PATCH(
     }
   }
 
-  if (password) {
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, emailWarning });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +26,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'date, content_type, task_type required' }, { status: 400 });
   }
 
-  const roleForType = task_type === 'design' ? 'designer' : 'smo';
+  const taskTypeRoles = await getTaskTypeRoles(supabaseAdmin);
+  const roleForType = taskTypeRoles[task_type];
+  if (!roleForType) {
+    return NextResponse.json({ error: `unknown task_type: ${task_type}` }, { status: 400 });
+  }
 
   const { data: members } = await supabaseAdmin
     .from('profiles')

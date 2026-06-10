@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 async function makeClient() {
   const cookieStore = await cookies();
@@ -49,10 +50,7 @@ export async function POST(req: NextRequest) {
     .select('role')
     .eq('id', user.id)
     .single();
-
-  if (!profile || !['manager', 'admin', 'ceo'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
   const {
@@ -65,7 +63,14 @@ export async function POST(req: NextRequest) {
     posting_date,
     posting_time,
     priority,
+    is_emergency,
   } = body;
+
+  const isPrivileged = ['manager', 'admin', 'ceo'].includes(profile.role);
+  // Employees can only submit emergency content requests
+  if (!isPrivileged && !is_emergency) {
+    return NextResponse.json({ error: 'Employees may only create emergency content' }, { status: 403 });
+  }
 
   if (!platform || !content_type || !posting_date) {
     return NextResponse.json(
@@ -86,7 +91,7 @@ export async function POST(req: NextRequest) {
       hashtags: hashtags || null,
       posting_date,
       posting_time: posting_time || '10:00:00',
-      priority: ['low','medium','high'].includes(priority) ? priority : 'medium',
+      priority: is_emergency ? 'high' : (['low','medium','high'].includes(priority) ? priority : 'medium'),
       source: 'in_app',
       created_by: user.id,
     })
@@ -94,5 +99,16 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (rowError) return NextResponse.json({ error: rowError.message }, { status: 500 });
+
+  // If emergency: mark tasks as emergency so the designer sees the carry-forward prompt
+  if (is_emergency && contentRow?.id) {
+    // Wait briefly for DB trigger to create + assign tasks
+    await new Promise(r => setTimeout(r, 600));
+    await supabaseAdmin
+      .from('tasks')
+      .update({ is_emergency: true })
+      .eq('content_row_id', contentRow.id);
+  }
+
   return NextResponse.json(contentRow, { status: 201 });
 }

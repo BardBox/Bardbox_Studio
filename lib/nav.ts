@@ -17,8 +17,9 @@ export function isNavGroup(e: NavEntry): e is { group: string; items: NavItem[] 
 // ── Master registry ─────────────────────────────────────────────────────────
 // Icons stored as string names; AppShell resolves them to components client-side.
 const NAV_MASTER: NavEntry[] = [
-  { href: '/manager', label: 'Dashboard',    iconName: 'LayoutDashboard', exact: true },
-  { href: '/ceo',     label: 'CEO Overview', iconName: 'LayoutDashboard', exact: true },
+  { href: '/manager',   label: 'Dashboard',        iconName: 'LayoutDashboard', exact: true },
+  { href: '/developer', label: 'Developer Dashboard', iconName: 'LayoutDashboard', exact: true },
+  { href: '/ceo',       label: 'CEO Overview',     iconName: 'LayoutDashboard', exact: true },
 
   {
     group: 'Operations',
@@ -62,11 +63,12 @@ const NAV_MASTER: NavEntry[] = [
 export const ROLE_DEFAULT_ROUTES: Record<string, string[]> = {
   manager:   ['/manager', '/manager/tasks', '/manager/requests', '/manager/clients', '/request-task', '/content', '/admin/team', '/hr', '/manager/leave-conflicts'],
   admin:     ['/manager', '/manager/tasks', '/manager/requests', '/manager/clients', '/request-task', '/content', '/smo', '/designer', '/admin/team', '/hr', '/manager/leave-conflicts', '/admin/capacity', '/admin/holidays', '/admin/roles', '/admin/settings', '/admin/permissions'],
-  ceo:       ['/ceo', '/ceo/approvals', '/content', '/admin/team'],
-  smo:       ['/smo', '/content', '/request-task'],
-  designer:  ['/designer', '/content', '/request-task'],
-  hr:        ['/hr', '/admin/team'],
-  developer: ['/manager', '/manager/tasks', '/request-task', '/admin/roles', '/admin/settings'],
+  ceo:       ['/ceo', '/ceo/approvals', '/content', '/admin/team', '/admin/capacity'],
+  smo:       ['/smo', '/content', '/request-task', '/admin/capacity'],
+  designer:      ['/designer', '/content', '/request-task', '/admin/capacity'],
+  video_editor:  ['/designer', '/content', '/request-task', '/admin/capacity'],
+  hr:        ['/hr', '/admin/team', '/admin/capacity'],
+  developer: ['/developer', '/manager/tasks', '/request-task', '/admin/roles', '/admin/settings', '/admin/capacity', '/admin/permissions', '/admin/holidays', '/admin/team'],
 };
 
 /** Filter NAV_MASTER to only include routes in the allowed set. */

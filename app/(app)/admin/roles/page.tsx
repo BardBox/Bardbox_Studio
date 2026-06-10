@@ -15,10 +15,6 @@ export default async function RolesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single();
-  if (!profile || !['admin', 'manager'].includes(profile.role)) redirect('/manager');
-
   const [{ data: roles }, { data: profiles }] = await Promise.all([
     supabaseAdmin.from('roles').select('*').order('created_at'),
     supabaseAdmin.from('profiles').select('role, is_active'),

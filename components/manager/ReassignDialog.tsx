@@ -17,17 +17,17 @@ interface ReassignDialogProps {
   teamMembers: UserProfile[];
   onClose: () => void;
   onReassigned: (taskId: number, newAssigneeId: string) => void;
+  taskTypeRoles: Record<string, string>;
 }
 
-export function ReassignDialog({ task, teamMembers, onClose, onReassigned }: ReassignDialogProps) {
+export function ReassignDialog({ task, teamMembers, onClose, onReassigned, taskTypeRoles }: ReassignDialogProps) {
   const [assigneeId, setAssigneeId] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (!task) return null;
 
-  const eligible = teamMembers.filter((m) =>
-    task.task_type === 'design' ? m.role === 'designer' : m.role === 'smo'
-  );
+  const targetRole = taskTypeRoles[task.task_type];
+  const eligible = teamMembers.filter((m) => m.role === targetRole);
 
   async function handleReassign() {
     if (!assigneeId) return;

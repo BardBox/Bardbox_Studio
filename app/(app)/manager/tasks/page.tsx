@@ -1,6 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, supabaseAdmin } from '@/lib/supabase/server';
 import { AllTasksTable } from '@/components/manager/AllTasksTable';
+import { getTaskTypeRoles } from '@/lib/task-type-flags';
 import type { PipelineTask, UserProfile, UserRole } from '@/lib/types';
+
+// Roles that can always see all tasks — does not depend on the roles table being seeded
+const PRIVILEGED_ROLES = new Set(['admin', 'manager', 'ceo', 'developer']);
 
 export default async function ManagerTasksPage() {
   const supabase = await createClient();
@@ -9,19 +13,28 @@ export default async function ManagerTasksPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user!.id).single();
   const userRole = (profile?.role ?? 'manager') as UserRole;
+  const isPrivileged = PRIVILEGED_ROLES.has(userRole);
+
+  const taskTypeRoles = await getTaskTypeRoles(supabase);
 
   const [tasksRes, teamRes, clientsRes] = await Promise.all([
-    supabase
-      .from('task_pipeline_health')
-      .select('*')
-      .eq('task_type', 'design')
-      .order('internal_deadline', { ascending: true }),
-    supabase
+    (() => {
+      // Privileged roles use supabaseAdmin → bypasses RLS, sees every task
+      // Non-privileged use user client filtered to their own tasks
+      const client = isPrivileged ? supabaseAdmin : supabase;
+      let q = client
+        .from('task_pipeline_health')
+        .select('*')
+        .order('internal_deadline', { ascending: true });
+      if (!isPrivileged) q = q.eq('assignee_id', user!.id);
+      return q;
+    })(),
+    supabaseAdmin
       .from('profiles')
       .select('id, full_name, role')
       .eq('is_active', true)
       .order('full_name'),
-    supabase
+    supabaseAdmin
       .from('clients')
       .select('name')
       .eq('is_active', true)
@@ -39,6 +52,7 @@ export default async function ManagerTasksPage() {
         team={(teamRes.data ?? []) as UserProfile[]}
         clients={(clientsRes.data ?? []).map((c: { name: string }) => c.name)}
         userRole={userRole}
+        taskTypeRoles={taskTypeRoles}
       />
     </div>
   );

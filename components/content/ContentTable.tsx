@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Plus } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -26,6 +26,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ImportDialog } from './ImportDialog';
+import { TaskDetailDialog } from './TaskDetailDialog';
+import type { PipelineTask, TaskStatus } from '@/lib/types';
 
 // ── Avatar color ──────────────────────────────────────────────────────────────
 
@@ -67,7 +69,7 @@ interface AiSuggestion {
 
 interface TaskSummary {
   id: number;
-  task_type: 'design' | 'post';
+  task_type: string;
   status: string;
   assignee_id: string | null;
   internal_deadline: string | null;
@@ -101,6 +103,14 @@ interface Props {
   activePlatform: string | null;
   activeAssignee: string | null;
   activeMonth: string;
+  canImport?: boolean;
+  hideEmployee?: boolean;
+  showTeamFilter?: boolean;
+  currentUserId?: string;
+  taskTypeRoles: Record<string, string>;
+  mediaTaskTypes: string[];
+  publishingTaskTypes: string[];
+  pipelineTasks?: PipelineTask[];
 }
 
 // ── Status styles (glass pills) ───────────────────────────────────────────────
@@ -268,8 +278,19 @@ function InlineStatusSelect({ rowId, currentStatus }: { rowId: number; currentSt
 
 export function ContentTable({
   rows, clients, platforms, designers, teamMembers,
-  activeClient, activePlatform, activeAssignee, activeMonth,
+  activeClient, activePlatform, activeAssignee, activeMonth, canImport = true, hideEmployee = false, showTeamFilter = true,
+  currentUserId, taskTypeRoles, mediaTaskTypes, publishingTaskTypes, pipelineTasks = [],
 }: Props) {
+  const mediaTypeSet = useMemo(() => new Set(mediaTaskTypes), [mediaTaskTypes]);
+  const publishingTypeSet = useMemo(() => new Set(publishingTaskTypes), [publishingTaskTypes]);
+  const mediaRoles = useMemo(
+    () => mediaTaskTypes.map((taskType) => taskTypeRoles[taskType]).filter(Boolean),
+    [mediaTaskTypes, taskTypeRoles],
+  );
+  const publishingRoles = useMemo(
+    () => publishingTaskTypes.map((taskType) => taskTypeRoles[taskType]).filter(Boolean),
+    [publishingTaskTypes, taskTypeRoles],
+  );
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -286,6 +307,125 @@ export function ContentTable({
   const [sortField, setSortField] = useState<string>('posting_date');
   const [sortOrder, setSortOrder] = useState<1 | -1>(1);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  function toggleExpanded(rowId: number) {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(rowId) ? next.delete(rowId) : next.add(rowId);
+      return next;
+    });
+  }
+
+  // ── Nested-accordion collapse state (Date ▸ Client ▸ Deadline ▸ Task) ───────
+  // Keys: `d:<date>`, `c:<date>|<client>`, `dl:<date>|<client>|<deadline>`.
+  // Empty set = everything expanded by default (employee sees their tasks at once).
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  function toggleKey(key: string) {
+    setCollapsedKeys(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  // ── Task detail dialog (reused from the calendar) ──────────────────────────
+  const [selectedTask, setSelectedTask] = useState<PipelineTask | null>(null);
+  const pipelineById = useMemo(() => {
+    const map = new Map<number, PipelineTask>();
+    for (const t of pipelineTasks) map.set(t.task_id, t);
+    return map;
+  }, [pipelineTasks]);
+  function openTaskDetail(taskId: number) {
+    const full = pipelineById.get(taskId);
+    if (full) setSelectedTask(full);
+  }
+  function handleTaskStatusChanged(taskId: number, newStatus: TaskStatus) {
+    setSelectedTask(t => (t && t.task_id === taskId ? { ...t, task_status: newStatus } : t));
+    router.refresh();
+  }
+
+  // ── Task timer (employee view) ─────────────────────────────────────────────
+  const [timerState, setTimerState] = useState<{
+    activeTaskId: number | null;
+    startedAt: number | null;
+    totals: Record<number, number>;
+  }>({ activeTaskId: null, startedAt: null, totals: {} });
+  const [timerMounted, setTimerMounted] = useState(false);
+  const [, setTimerTick] = useState(0);
+
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    try {
+      const stored = localStorage.getItem(`bardbox_timer_${currentUserId}`);
+      if (stored) setTimerState(JSON.parse(stored));
+    } catch {}
+    setTimerMounted(true);
+    // Auto-expand rows where the user has a task due today
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      for (const row of rows) {
+        const mine = row.tasks.filter(t => t.assignee_id === currentUserId);
+        if (mine.some(t => t.internal_deadline?.slice(0, 10) === todayStr)) {
+          next.add(row.id);
+        }
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!timerState.activeTaskId) return;
+    const id = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [timerState.activeTaskId]);
+
+  function startTimer(taskId: number) {
+    setTimerState(prev => {
+      const now = Date.now();
+      const totals = { ...prev.totals };
+      if (prev.activeTaskId !== null && prev.activeTaskId !== taskId && prev.startedAt !== null) {
+        totals[prev.activeTaskId] = (totals[prev.activeTaskId] ?? 0) + (now - prev.startedAt);
+      }
+      const next = { activeTaskId: taskId, startedAt: now, totals };
+      if (currentUserId) {
+        try { localStorage.setItem(`bardbox_timer_${currentUserId}`, JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  }
+
+  function pauseTimer(taskId: number) {
+    setTimerState(prev => {
+      if (prev.activeTaskId !== taskId || prev.startedAt === null) return prev;
+      const now = Date.now();
+      const next = {
+        activeTaskId: null as number | null,
+        startedAt: null as number | null,
+        totals: { ...prev.totals, [taskId]: (prev.totals[taskId] ?? 0) + (now - prev.startedAt) },
+      };
+      if (currentUserId) {
+        try { localStorage.setItem(`bardbox_timer_${currentUserId}`, JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+  }
+
+  function formatMs(ms: number): string {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+      : `${m}:${String(sec).padStart(2, '0')}`;
+  }
 
   const NONE = '__none__';
 
@@ -368,6 +508,45 @@ export function ContentTable({
     });
     return result;
   }, [rows, sortField, sortOrder, colFilters, teamMembers]);
+
+  // ── Nested tree for the employee view: Deadline ▸ Client ▸ Task ─────────────
+  // Top level = task deadline, matching the employees calendar (which places
+  // tasks by deadline). Leaves are the user's own tasks, labelled
+  // "<content type> — <task type>" (e.g. "Reel — Design").
+  type TaskLeaf = { row: ContentRow; task: TaskSummary };
+  const employeeTree = useMemo(() => {
+    if (!currentUserId) return [] as {
+      deadline: string;
+      count: number;
+      clients: { client: string; leaves: TaskLeaf[] }[];
+    }[];
+
+    const byDeadline = new Map<string, Map<string, TaskLeaf[]>>();
+    for (const row of displayRows) {
+      for (const task of row.tasks) {
+        if (task.assignee_id !== currentUserId) continue;
+        const deadline = task.internal_deadline ? task.internal_deadline.slice(0, 10) : 'none';
+        const client = row.client_name ?? '—';
+        if (!byDeadline.has(deadline)) byDeadline.set(deadline, new Map());
+        const byClient = byDeadline.get(deadline)!;
+        if (!byClient.has(client)) byClient.set(client, []);
+        byClient.get(client)!.push({ row, task });
+      }
+    }
+
+    return [...byDeadline.entries()]
+      .sort(([a], [b]) => (a === 'none' ? 1 : b === 'none' ? -1 : a < b ? -1 : a > b ? 1 : 0))
+      .map(([deadline, byClient]) => {
+        const clients = [...byClient.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([client, leaves]) => ({
+            client,
+            leaves: leaves.sort((x, y) => x.row.posting_date.localeCompare(y.row.posting_date)),
+          }));
+        const count = clients.reduce((n, c) => n + c.leaves.length, 0);
+        return { deadline, count, clients };
+      });
+  }, [displayRows, currentUserId]);
 
   function pushFilter(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -521,49 +700,53 @@ export function ContentTable({
             </SelectContent>
           </Select>
 
-          {/* Team filter */}
-          <Select
-            value={activeAssignee ?? '__all__'}
-            onValueChange={(v) => pushFilter('assignee', v === '__all__' ? null : v)}
-          >
-            <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[110px] gap-1.5 focus:ring-0 focus:ring-offset-0">
-              <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-slate-500 dark:text-slate-400')}>
-                {activeAssignee ?? 'All team'}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All team</SelectItem>
-              {teamMembers.map(m => (
-                <SelectItem key={m.id} value={m.full_name}>
-                  <span className="flex items-center gap-2.5">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase">
-                      {m.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+          {/* Team filter — hidden for employees viewing only their own tasks */}
+          {showTeamFilter && (
+            <Select
+              value={activeAssignee ?? '__all__'}
+              onValueChange={(v) => pushFilter('assignee', v === '__all__' ? null : v)}
+            >
+              <SelectTrigger className="h-9 rounded-full bg-white/40 backdrop-blur-sm border-white/50 hover:bg-white/60 transition-colors text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-slate-200 shadow-none text-xs font-semibold w-auto min-w-[110px] gap-1.5 focus:ring-0 focus:ring-offset-0">
+                <span className={cn('flex-1 text-left truncate', !activeAssignee && 'text-slate-500 dark:text-slate-400')}>
+                  {activeAssignee ?? 'All team'}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All team</SelectItem>
+                {teamMembers.map(m => (
+                  <SelectItem key={m.id} value={m.full_name}>
+                    <span className="flex items-center gap-2.5">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold uppercase">
+                        {m.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                      </span>
+                      <span className="font-medium">{m.full_name}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${
+                        mediaRoles.includes(m.role)
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                          : publishingRoles.includes(m.role)
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {m.role}
+                      </span>
                     </span>
-                    <span className="font-medium">{m.full_name}</span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${
-                      m.role === 'designer'
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                        : m.role === 'smo'
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {m.role}
-                    </span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        {/* Import CTA */}
-        <button
-          onClick={() => setImportOpen(true)}
-          className="h-9 flex items-center gap-2 px-5 rounded-full bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 text-white text-xs font-bold transition-colors shadow-md"
-        >
-          <Plus className="size-3.5" />
-          Import
-        </button>
+        {/* Import CTA — privileged roles only */}
+        {canImport && (
+          <button
+            onClick={() => setImportOpen(true)}
+            className="h-9 flex items-center gap-2 px-5 rounded-full bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 text-white text-xs font-bold transition-colors shadow-md"
+          >
+            <Plus className="size-3.5" />
+            Import
+          </button>
+        )}
       </div>
 
       {/* ── Bulk action bar ──────────────────────────────────────────────────── */}
@@ -571,12 +754,16 @@ export function ContentTable({
         <div className="flex items-center gap-2 bg-blue-500/10 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 flex-wrap">
           <span className="text-xs font-bold text-blue-700 dark:text-blue-300">{selected.size} selected</span>
           <div className="flex-1" />
-          <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading || aiChecking} className="rounded-full text-xs h-7">
-            {aiChecking ? '✦ AI analysing…' : 'Create Tasks'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setStatusOpen(true)} disabled={loading} className="rounded-full text-xs h-7">
-            Change Status
-          </Button>
+          {canImport && (
+            <Button size="sm" variant="outline" onClick={handleCreateTasks} disabled={loading || aiChecking} className="rounded-full text-xs h-7">
+              {aiChecking ? '✦ AI analysing…' : 'Create Tasks'}
+            </Button>
+          )}
+          {canImport && (
+            <Button size="sm" variant="outline" onClick={() => setStatusOpen(true)} disabled={loading} className="rounded-full text-xs h-7">
+              Change Status
+            </Button>
+          )}
           <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)} disabled={loading} className="rounded-full text-xs h-7">
             Delete
           </Button>
@@ -587,6 +774,120 @@ export function ContentTable({
       {/* ── Table ────────────────────────────────────────────────────────────── */}
       <div className="glass-panel rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
+          {!canImport && currentUserId ? (
+            <div className="p-2 sm:p-3 space-y-1.5">
+              {employeeTree.length === 0 ? (
+                <div className="px-4 py-14 text-center text-sm text-slate-400 dark:text-slate-500">
+                  No tasks found.
+                </div>
+              ) : employeeTree.map(dlNode => {
+                const dlKey = `dl:${dlNode.deadline}`;
+                const dlOpen = !collapsedKeys.has(dlKey);
+                const isToday = dlNode.deadline === todayStr;
+                const isOverdue = dlNode.deadline !== 'none' && dlNode.deadline < todayStr;
+                const dlLabel = dlNode.deadline === 'none'
+                  ? 'No deadline'
+                  : new Date(dlNode.deadline + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                return (
+                  <div key={dlNode.deadline} className="rounded-xl border border-white/40 dark:border-white/10 overflow-hidden bg-white/20 dark:bg-white/[0.03]">
+                    {/* Level 1 — Deadline */}
+                    <button
+                      onClick={() => toggleKey(dlKey)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/30 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <ChevronRight className={cn('h-4 w-4 text-slate-400 transition-transform shrink-0', dlOpen && 'rotate-90')} />
+                      <span className={cn(
+                        'text-sm font-bold',
+                        isToday ? 'text-amber-700 dark:text-amber-400'
+                          : isOverdue ? 'text-red-600 dark:text-red-400'
+                          : 'text-slate-800 dark:text-slate-100'
+                      )}>
+                        {isOverdue ? '⚑ ' : ''}{dlNode.deadline === 'none' ? dlLabel : isToday ? `${dlLabel} · Due today` : `Due ${dlLabel}`}
+                      </span>
+                      <span className="text-[10px] font-bold tabular-nums text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-white/10 border border-white/50 rounded-full px-1.5 py-0.5">
+                        {dlNode.count} {dlNode.count === 1 ? 'task' : 'tasks'}
+                      </span>
+                    </button>
+
+                    {dlOpen && dlNode.clients.map(clientNode => {
+                      const clientKey = `c:${dlNode.deadline}|${clientNode.client}`;
+                      const clientOpen = !collapsedKeys.has(clientKey);
+                      return (
+                        <div key={clientNode.client} className="border-t border-white/30 dark:border-white/5">
+                          {/* Level 2 — Client */}
+                          <button
+                            onClick={() => toggleKey(clientKey)}
+                            className="w-full flex items-center gap-2 pl-8 pr-3 py-2 hover:bg-white/20 dark:hover:bg-white/5 transition-colors"
+                          >
+                            <ChevronRight className={cn('h-3.5 w-3.5 text-slate-400 transition-transform shrink-0', clientOpen && 'rotate-90')} />
+                            <span className="text-xs font-bold text-blue-700 dark:text-blue-400">{clientNode.client}</span>
+                            <span className="text-[10px] font-semibold tabular-nums text-slate-400 dark:text-slate-500">{clientNode.leaves.length}</span>
+                          </button>
+
+                          {/* Level 3 — Task (Title — Type) */}
+                          {clientOpen && clientNode.leaves.map(({ row, task }) => {
+                            const taskIsActive = timerState.activeTaskId === task.id;
+                            const taskAccumulated = timerState.totals[task.id] ?? 0;
+                            const taskCurrentMs = taskIsActive && timerState.startedAt ? Date.now() - timerState.startedAt : 0;
+                            const taskTotalMs = taskAccumulated + taskCurrentMs;
+                            return (
+                              <div key={task.id} className="flex items-center gap-2.5 pl-14 pr-3 py-2 border-t border-white/10 dark:border-white/[0.03] bg-slate-50/40 dark:bg-slate-900/20">
+                                <button
+                                  onClick={() => openTaskDetail(task.id)}
+                                  className="flex items-center gap-2.5 text-left rounded-md -ml-1 px-1 py-0.5 hover:bg-white/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                                  title="View task details"
+                                >
+                                  <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200 capitalize">{row.content_type}</span>
+                                <span className="text-slate-300 dark:text-slate-600">—</span>
+                                <span className={cn(
+                                  'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border capitalize',
+                                  mediaTypeSet.has(task.task_type)
+                                    ? 'bg-violet-500/10 border-violet-400/30 text-violet-700 dark:text-violet-300'
+                                    : 'bg-blue-500/10 border-blue-400/30 text-blue-700 dark:text-blue-300'
+                                )}>
+                                  {task.task_type}
+                                </span>
+                                <span className={cn(
+                                  'text-[10px] font-semibold capitalize px-2 py-0.5 rounded-full border',
+                                  STATUS_GLASS[task.status] ?? STATUS_GLASS.draft
+                                )}>
+                                  {task.status.replace(/_/g, ' ')}
+                                </span>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                    posts {new Date(row.posting_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                </button>
+                                {timerMounted && (
+                                  <div className="ml-auto flex items-center gap-2">
+                                    <button
+                                      onClick={() => taskIsActive ? pauseTimer(task.id) : startTimer(task.id)}
+                                      className={cn(
+                                        'text-[11px] font-bold px-4 py-1.5 rounded-full border transition-all',
+                                        taskIsActive
+                                          ? 'bg-amber-500/15 border-amber-400/40 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
+                                          : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300'
+                                      )}
+                                    >
+                                      {taskIsActive ? '⏸ Pause' : taskTotalMs > 0 ? '▶ Resume' : '▶ Start'}
+                                    </button>
+                                    {taskTotalMs > 0 && (
+                                      <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 tabular-nums bg-white/60 dark:bg-white/10 border border-white/40 px-2 py-0.5 rounded">
+                                        {formatMs(taskTotalMs)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="border-b border-white/30 dark:border-white/10 bg-white/20 dark:bg-white/5">
@@ -677,7 +978,7 @@ export function ContentTable({
                 })()}
 
                 {/* Employee */}
-                {(() => {
+                {!hideEmployee && (() => {
                   const hasFilter = !!colFilters['assignee'];
                   return (
                     <th className={thCls}>
@@ -735,6 +1036,10 @@ export function ContentTable({
                     </th>
                   );
                 })()}
+
+                {!canImport && currentUserId && (
+                  <th className={thCls}>Action</th>
+                )}
               </tr>
             </thead>
 
@@ -745,17 +1050,24 @@ export function ContentTable({
                     No content rows found.
                   </td>
                 </tr>
-              ) : displayRows.map((row, rowIdx) => (
+              ) : displayRows.map((row, rowIdx) => {
+                const myTasks = currentUserId ? row.tasks.filter(t => t.assignee_id === currentUserId) : [];
+                const hasActiveTimer = myTasks.some(t => timerState.activeTaskId === t.id);
+                const isExpanded = expandedRows.has(row.id);
+                const hasTaskDueToday = !canImport && myTasks.some(t => t.internal_deadline?.slice(0, 10) === todayStr);
+                return (
+                <Fragment key={row.id}>
                 <tr
-                  key={row.id}
                   className={cn(
                     'transition-colors text-[13px]',
                     'border-b border-white/20 dark:border-white/5 last:border-0',
                     selected.has(row.id)
                       ? 'bg-blue-500/8 dark:bg-blue-400/10'
-                      : rowIdx % 2 === 0
-                        ? 'hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
-                        : 'bg-white/10 dark:bg-white/[0.02] hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
+                      : hasTaskDueToday
+                        ? 'bg-amber-500/5 dark:bg-amber-400/5 border-l-2 border-l-amber-400/70'
+                        : rowIdx % 2 === 0
+                          ? 'hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
+                          : 'bg-white/10 dark:bg-white/[0.02] hover:bg-blue-500/5 dark:hover:bg-blue-400/5'
                   )}
                 >
                   <td className="px-3 py-2.5">
@@ -784,29 +1096,136 @@ export function ContentTable({
                       <TaskBadge tasks={row.tasks} />
                     )}
                   </td>
+                  {!hideEmployee && (
+                    <td className="px-3 py-2.5">
+                      {(() => {
+                          const mediaTask = row.tasks.find(t => mediaTypeSet.has(t.task_type));
+                          return (
+                            <AssignTaskCell
+                              task={mediaTask}
+                              pool={teamMembers.filter(m => m.role === (mediaTask ? taskTypeRoles[mediaTask.task_type] : ''))}
+                            />
+                          );
+                        })()}
+                    </td>
+                  )}
                   <td className="px-3 py-2.5">
-                    <AssignTaskCell
-                      task={row.tasks.find(t => t.task_type === 'design')}
-                      pool={teamMembers.filter(m => m.role === 'designer')}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <AssignTaskCell
-                      task={row.tasks.find(t => t.task_type === 'post')}
-                      pool={teamMembers.filter(m => m.role === 'smo')}
-                    />
+                    {(() => {
+                      const publishingTask = row.tasks.find(t => publishingTypeSet.has(t.task_type));
+                      return (
+                        <AssignTaskCell
+                          task={publishingTask}
+                          pool={teamMembers.filter(m => publishingRoles.includes(m.role))}
+                        />
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2.5">
                     <span className="text-[11px] text-slate-400 dark:text-slate-500 capitalize font-medium">{row.source}</span>
                   </td>
+                  {!canImport && currentUserId && (
+                    <td className="px-3 py-2.5">
+                      {timerMounted && myTasks.length > 0 ? (
+                        <button
+                          onClick={() => toggleExpanded(row.id)}
+                          className={cn(
+                            'flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full border transition-all',
+                            isExpanded
+                              ? 'bg-blue-500/15 border-blue-400/40 text-blue-700 dark:text-blue-300'
+                              : hasActiveTimer
+                              ? 'bg-amber-500/15 border-amber-400/40 text-amber-700 dark:text-amber-300'
+                              : hasTaskDueToday
+                              ? 'bg-amber-500/15 border-amber-400/50 text-amber-800 dark:text-amber-300'
+                              : 'bg-slate-100/60 border-slate-200/60 text-slate-600 hover:bg-slate-200/60 dark:bg-slate-800/40 dark:text-slate-400'
+                          )}
+                        >
+                          {hasActiveTimer && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+                          {myTasks.length} task{myTasks.length > 1 ? 's' : ''}
+                          {hasTaskDueToday && (
+                            <span className="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full leading-none">Today</span>
+                          )}
+                          <span className="text-[9px]">{isExpanded ? '▴' : '▾'}</span>
+                        </button>
+                      ) : timerMounted ? (
+                        <span className="text-[11px] text-slate-300 dark:text-slate-600">—</span>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
-              ))}
+                {isExpanded && timerMounted && myTasks.map(task => {
+                  const taskIsActive = timerState.activeTaskId === task.id;
+                  const taskAccumulated = timerState.totals[task.id] ?? 0;
+                  const taskCurrentMs = taskIsActive && timerState.startedAt ? Date.now() - timerState.startedAt : 0;
+                  const taskTotalMs = taskAccumulated + taskCurrentMs;
+                  return (
+                    <tr key={`task-${task.id}`} className="bg-slate-50/50 dark:bg-slate-900/30">
+                      <td colSpan={10} className="border-b border-white/10 dark:border-white/5">
+                        <div className="pl-10 pr-4 py-2 flex items-center gap-4">
+                          <span className={cn(
+                            'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border capitalize',
+                            mediaTypeSet.has(task.task_type)
+                              ? 'bg-violet-500/10 border-violet-400/30 text-violet-700 dark:text-violet-300'
+                              : 'bg-blue-500/10 border-blue-400/30 text-blue-700 dark:text-blue-300'
+                          )}>
+                            {task.task_type}
+                          </span>
+                          <span className={cn(
+                            'text-[10px] font-semibold capitalize px-2 py-0.5 rounded-full border',
+                            STATUS_GLASS[task.status] ?? STATUS_GLASS.draft
+                          )}>
+                            {task.status.replace(/_/g, ' ')}
+                          </span>
+                          {task.internal_deadline && (
+                            <span className={cn(
+                              'text-[11px] font-semibold',
+                              task.internal_deadline.slice(0, 10) === todayStr
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : task.internal_deadline.slice(0, 10) < todayStr
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-slate-400 dark:text-slate-500'
+                            )}>
+                              {task.internal_deadline.slice(0, 10) === todayStr ? '⚑ Due today' : `Due ${new Date(task.internal_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                            </span>
+                          )}
+                          <div className="ml-auto flex items-center gap-2">
+                            <button
+                              onClick={() => taskIsActive ? pauseTimer(task.id) : startTimer(task.id)}
+                              className={cn(
+                                'text-[11px] font-bold px-4 py-1.5 rounded-full border transition-all',
+                                taskIsActive
+                                  ? 'bg-amber-500/15 border-amber-400/40 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300'
+                                  : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300'
+                              )}
+                            >
+                              {taskIsActive ? '⏸ Pause' : taskTotalMs > 0 ? '▶ Resume' : '▶ Start'}
+                            </button>
+                            {taskTotalMs > 0 && (
+                              <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 tabular-nums bg-white/60 dark:bg-white/10 border border-white/40 px-2 py-0.5 rounded">
+                                {formatMs(taskTotalMs)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                </Fragment>
+                );
+              })}
             </tbody>
           </table>
+          )}
         </div>
       </div>
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+
+      <TaskDetailDialog
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onStatusChanged={handleTaskStatusChanged}
+      />
 
       {/* ── AI Schedule Analysis dialog ──────────────────────────────────────── */}
       <Dialog open={aiOpen} onOpenChange={setAiOpen}>

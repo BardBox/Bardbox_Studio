@@ -16,6 +16,7 @@ interface Props {
   throughput: ThroughputRow[];
   clientHealth: ClientHealth[];
   pendingApprovals: PipelineTask[];
+  taskTypeRoles: Record<string, string>;
 }
 
 export function CeoDashboard({
@@ -25,6 +26,7 @@ export function CeoDashboard({
   throughput,
   clientHealth,
   pendingApprovals,
+  taskTypeRoles,
 }: Props) {
   const [reassignTask, setReassignTask] = useState<PipelineTask | null>(null);
 
@@ -74,6 +76,7 @@ export function CeoDashboard({
           teamMembers={teamLoad}
           onClose={() => setReassignTask(null)}
           onReassigned={() => setReassignTask(null)}
+          taskTypeRoles={taskTypeRoles}
         />
       )}
     </div>

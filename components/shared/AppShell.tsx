@@ -39,13 +39,14 @@ interface AppShellProps {
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  designer:  'Designer',
-  smo:       'Social Media',
-  manager:   'Manager',
-  admin:     'Admin',
-  ceo:       'CEO',
-  hr:        'HR',
-  developer: 'Developer',
+  designer:     'Designer',
+  video_editor: 'Video Editor',
+  smo:          'Social Media',
+  manager:      'Manager',
+  admin:        'Admin',
+  ceo:          'CEO',
+  hr:           'HR',
+  developer:    'Developer',
 };
 
 // ── Section model ───────────────────────────────────────────────────────────
